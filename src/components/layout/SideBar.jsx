@@ -1,5 +1,5 @@
-import AnimatedLogo from '@/assets/AnimatedLogo';
 import { Box, VStack, Text, Icon, Image, Divider } from '@chakra-ui/react';
+import logo from '../../assets/logo.png'; 
 import {
   FiHome,
   FiFolder,
@@ -11,7 +11,7 @@ import { Link } from 'react-router-dom';
 
 const Sidebar = () => {
   const menuItems = [
-    { label: 'Dashboard', icon: FiHome, path: '/' },
+    { label: 'Dashboard', icon: FiHome, path: '/dashboard' },
     { label: 'Projects', icon: FiFolder, path: '/projects' },
     { label: 'My Tasks', icon: FiCheckSquare, path: '/tasks' },
     { label: 'Chat', icon: FiMessageSquare, path: '/chat' },
@@ -32,7 +32,13 @@ const Sidebar = () => {
     >
       <VStack spacing={3} align="center" mb={8}>
         {/* Logo */}
-        <AnimatedLogo />
+        <Image
+          src={logo}
+          alt="Logo"
+          boxSize="50px"
+          objectFit="cover"
+          mb={2}
+        />
         <Text fontSize="xl" fontWeight="bold">
           Project Manager
         </Text>

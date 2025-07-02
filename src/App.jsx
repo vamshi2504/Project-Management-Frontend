@@ -8,6 +8,8 @@ import Projects from './pages/Projects';
 import Tasks from './pages/Tasks';
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
+import ProjectDetailsPage from './pages/ProjectDetailsPage';
+import TaskDetailsPage from './pages/TaskDetailsPage';
 
 function App() {
   return (
@@ -16,10 +18,12 @@ function App() {
         <Sidebar />
         <AppLayout>
           <Routes>
-            {/* <Route path="/" element={<Dashboard />} /> */}
+            <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/projects" element={<Projects />} />
+            <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
             <Route path="/tasks" element={<Tasks />} />
+            <Route path="/tasks/:taskId" element={<TaskDetailsPage />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
