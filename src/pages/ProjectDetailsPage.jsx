@@ -25,10 +25,26 @@ import {
   TabPanels,
   Tab,
   TabPanel,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
+  Select,
+  useDisclosure,
+  useToast,
+  InputGroup,
+  InputLeftElement,
 } from "@chakra-ui/react";
-import React from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaUsers, FaClock, FaCalendarAlt, FaTasks, FaEye, FaGripVertical, FaUser } from "react-icons/fa";
+import { FaArrowLeft, FaUsers, FaClock, FaCalendarAlt, FaTasks, FaEye, FaGripVertical, FaUser, FaEdit, FaUserPlus, FaProjectDiagram } from "react-icons/fa";
 
 // Mock projects data (should match the one from Projects.jsx)
 const mockProjects = [
@@ -199,10 +215,27 @@ const ProjectDetailsPage = () => {
   const cardBg = useColorModeValue('white', 'gray.800');
   const textColor = useColorModeValue('gray.700', 'gray.100');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const toast = useToast();
 
   // State for tasks (to handle drag and drop)
   const [tasks, setTasks] = React.useState(mockProjectTasks[parseInt(projectId)] || []);
   const [draggedTask, setDraggedTask] = React.useState(null);
+
+  // Modal states
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const { isOpen: isAddMemberOpen, onOpen: onAddMemberOpen, onClose: onAddMemberClose } = useDisclosure();
+
+  // Form states
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    description: '',
+    deadline: '',
+    status: '',
+  });
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+
+  // Current user (for demo purposes, this would come from authentication)
+  const currentUser = 'You'; // This represents the logged-in user
 
   // Find the project by ID
   const project = mockProjects.find(p => p.id === parseInt(projectId));
@@ -297,6 +330,66 @@ const ProjectDetailsPage = () => {
     }
     setDraggedTask(null);
   };
+
+  // Handler functions for edit project
+  const handleEditProject = () => {
+    setEditFormData({
+      name: project.name,
+      description: project.description,
+      deadline: project.deadline,
+      status: project.status,
+    });
+    onEditOpen();
+  };
+
+  const handleSaveProject = () => {
+    // In a real app, this would make an API call
+    toast({
+      title: 'Success',
+      description: 'Project updated successfully!',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+    onEditClose();
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handler functions for add member
+  const handleAddMember = () => {
+    if (!newMemberEmail) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a valid email address.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    // In a real app, this would make an API call
+    toast({
+      title: 'Success',
+      description: `Invitation sent to ${newMemberEmail}!`,
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+    
+    setNewMemberEmail('');
+    onAddMemberClose();
+  };
+
+  // Check if current user is the project owner
+  const isProjectOwner = currentUser === project.owner;
 
   // Group tasks by status
   const tasksByStatus = {
@@ -492,15 +585,44 @@ const ProjectDetailsPage = () => {
               {project.description}
             </Text>
           </VStack>
-          <Badge 
-            colorScheme={getStatusColor(project.status)}
-            borderRadius="full"
-            px={4}
-            py={2}
-            fontSize="md"
-          >
-            {project.status}
-          </Badge>
+          <HStack spacing={3}>
+            {/* Only show buttons to project owner */}
+            {isProjectOwner && (
+              <>
+                {/* Add Member Button */}
+                <Button
+                  colorScheme="green"
+                  variant="outline"
+                  leftIcon={<Icon as={FaUserPlus} />}
+                  onClick={onAddMemberOpen}
+                  size="sm"
+                >
+                  Add Member
+                </Button>
+                
+                {/* Edit Project Button */}
+                <Button
+                  colorScheme="blue"
+                  variant="outline"
+                  leftIcon={<Icon as={FaEdit} />}
+                  onClick={handleEditProject}
+                  size="sm"
+                >
+                  Edit Project
+                </Button>
+              </>
+            )}
+            
+            <Badge 
+              colorScheme={getStatusColor(project.status)}
+              borderRadius="full"
+              px={4}
+              py={2}
+              fontSize="md"
+            >
+              {project.status}
+            </Badge>
+          </HStack>
         </Flex>
 
         {/* Owner & Team */}
@@ -695,6 +817,206 @@ const ProjectDetailsPage = () => {
           </TabPanels>
         </Tabs>
       </Box>
+
+      {/* Edit Project Modal */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
+        <ModalOverlay bg="blackAlpha.800" />
+        <ModalContent bg={cardBg} border="1px" borderColor={borderColor}>
+          <ModalHeader color={textColor}>
+            <HStack spacing={3}>
+              <Icon as={FaEdit} color="blue.400" />
+              <Text>Edit Project</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton color="gray.400" />
+          
+          <ModalBody pb={6}>
+            <VStack spacing={6}>
+              {/* Project Name */}
+              <FormControl isRequired>
+                <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
+                  Project Name
+                </FormLabel>
+                <InputGroup>
+                  <InputLeftElement pointerEvents="none">
+                    <Icon as={FaProjectDiagram} color="gray.500" />
+                  </InputLeftElement>
+                  <Input
+                    name="name"
+                    value={editFormData.name}
+                    onChange={handleEditInputChange}
+                    placeholder="Enter project name"
+                    bg={useColorModeValue('white', 'gray.700')}
+                    border="1px"
+                    borderColor={borderColor}
+                    color={textColor}
+                    _hover={{ borderColor: "gray.500" }}
+                    _focus={{ borderColor: "blue.500" }}
+                    pl={10}
+                  />
+                </InputGroup>
+              </FormControl>
+
+              {/* Project Description */}
+              <FormControl isRequired>
+                <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
+                  Description
+                </FormLabel>
+                <Textarea
+                  name="description"
+                  value={editFormData.description}
+                  onChange={handleEditInputChange}
+                  placeholder="Describe your project..."
+                  bg={useColorModeValue('white', 'gray.700')}
+                  border="1px"
+                  borderColor={borderColor}
+                  color={textColor}
+                  _hover={{ borderColor: "gray.500" }}
+                  _focus={{ borderColor: "blue.500" }}
+                  rows={4}
+                  resize="vertical"
+                />
+              </FormControl>
+
+              {/* Status and Deadline Row */}
+              <SimpleGrid columns={2} spacing={4} w="full">
+                <FormControl>
+                  <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
+                    Status
+                  </FormLabel>
+                  <Select
+                    name="status"
+                    value={editFormData.status}
+                    onChange={handleEditInputChange}
+                    bg={useColorModeValue('white', 'gray.700')}
+                    border="1px"
+                    borderColor={borderColor}
+                    color={textColor}
+                    _hover={{ borderColor: "gray.500" }}
+                    _focus={{ borderColor: "blue.500" }}
+                  >
+                    <option value="Pending" style={{ backgroundColor: useColorModeValue('white', '#2D3748') }}>Pending</option>
+                    <option value="In Progress" style={{ backgroundColor: useColorModeValue('white', '#2D3748') }}>In Progress</option>
+                    <option value="Completed" style={{ backgroundColor: useColorModeValue('white', '#2D3748') }}>Completed</option>
+                  </Select>
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
+                    Deadline
+                  </FormLabel>
+                  <InputGroup>
+                    <InputLeftElement pointerEvents="none">
+                      <Icon as={FaCalendarAlt} color="gray.500" />
+                    </InputLeftElement>
+                    <Input
+                      name="deadline"
+                      type="date"
+                      value={editFormData.deadline}
+                      onChange={handleEditInputChange}
+                      bg={useColorModeValue('white', 'gray.700')}
+                      border="1px"
+                      borderColor={borderColor}
+                      color={textColor}
+                      _hover={{ borderColor: "gray.500" }}
+                      _focus={{ borderColor: "blue.500" }}
+                      pl={10}
+                    />
+                  </InputGroup>
+                </FormControl>
+              </SimpleGrid>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button 
+              variant="ghost" 
+              mr={3} 
+              onClick={onEditClose}
+              color="gray.400"
+              _hover={{ color: textColor, bg: useColorModeValue('gray.100', 'gray.700') }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              colorScheme="blue" 
+              onClick={handleSaveProject}
+              leftIcon={<Icon as={FaEdit} />}
+              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
+              transition="all 0.2s"
+            >
+              Update Project
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Add Member Modal */}
+      <Modal isOpen={isAddMemberOpen} onClose={onAddMemberClose} size="md">
+        <ModalOverlay bg="blackAlpha.800" />
+        <ModalContent bg={cardBg} border="1px" borderColor={borderColor}>
+          <ModalHeader color={textColor}>
+            <HStack spacing={3}>
+              <Icon as={FaUserPlus} color="green.400" />
+              <Text>Add Team Member</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton color="gray.400" />
+          
+          <ModalBody pb={6}>
+            <VStack spacing={4}>
+              <FormControl isRequired>
+                <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
+                  Member Email
+                </FormLabel>
+                <InputGroup>
+                  <InputLeftElement pointerEvents="none">
+                    <Icon as={FaUser} color="gray.500" />
+                  </InputLeftElement>
+                  <Input
+                    type="email"
+                    value={newMemberEmail}
+                    onChange={(e) => setNewMemberEmail(e.target.value)}
+                    placeholder="Enter member email address"
+                    bg={useColorModeValue('white', 'gray.700')}
+                    border="1px"
+                    borderColor={borderColor}
+                    color={textColor}
+                    _hover={{ borderColor: "gray.500" }}
+                    _focus={{ borderColor: "blue.500" }}
+                    pl={10}
+                  />
+                </InputGroup>
+              </FormControl>
+              
+              <Text fontSize="sm" color="gray.500" textAlign="center">
+                An invitation will be sent to this email address to join the project.
+              </Text>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button 
+              variant="ghost" 
+              mr={3} 
+              onClick={onAddMemberClose}
+              color="gray.400"
+              _hover={{ color: textColor, bg: useColorModeValue('gray.100', 'gray.700') }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              colorScheme="green" 
+              onClick={handleAddMember}
+              leftIcon={<Icon as={FaUserPlus} />}
+              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
+              transition="all 0.2s"
+            >
+              Send Invitation
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };

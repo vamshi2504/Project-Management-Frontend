@@ -15,9 +15,26 @@ import {
   InputLeftElement,
   Icon,
   Divider,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Textarea,
+  Select,
+  useDisclosure,
+  useToast,
+  SimpleGrid,
+  Checkbox,
+  CheckboxGroup,
+  Stack,
 } from '@chakra-ui/react';
 import { AddIcon, SearchIcon } from '@chakra-ui/icons';
-import { FaGripVertical, FaUser, FaClock } from 'react-icons/fa';
+import { FaGripVertical, FaUser, FaClock, FaTasks, FaCalendarAlt, FaTag } from 'react-icons/fa';
 
 const mockTasks = [
   {
@@ -105,7 +122,17 @@ const TasksPage = () => {
   const [tasks, setTasks] = useState(mockTasks);
   const [searchTerm, setSearchTerm] = useState('');
   const [draggedTask, setDraggedTask] = useState(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    assignedTo: 'You',
+    dueDate: '',
+    status: 'To Do',
+    tags: [],
+  });
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const handleTaskClick = (taskId, e) => {
     // Prevent navigation if user is dragging
@@ -147,6 +174,87 @@ const TasksPage = () => {
       );
     }
     setDraggedTask(null);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleTagChange = (selectedTags) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: selectedTags
+    }));
+  };
+
+  const handleCreateTask = () => {
+    // Validate required fields
+    if (!formData.title || !formData.description || !formData.dueDate) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all required fields.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    // Create new task
+    const newTask = {
+      id: Date.now(), // Simple ID generation
+      title: formData.title,
+      description: formData.description,
+      assignedTo: formData.assignedTo,
+      dueDate: formData.dueDate,
+      status: formData.status,
+      tags: formData.tags,
+    };
+
+    // Add to tasks list
+    setTasks(prev => [newTask, ...prev]);
+
+    // Reset form
+    setFormData({
+      title: '',
+      description: '',
+      assignedTo: 'You',
+      dueDate: '',
+      status: 'To Do',
+      tags: [],
+    });
+
+    // Close modal
+    onClose();
+
+    // Show success toast
+    toast({
+      title: 'Success',
+      description: 'Task created successfully!',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      assignedTo: 'You',
+      dueDate: '',
+      status: 'To Do',
+      tags: [],
+    });
+  };
+
+  const handleModalClose = () => {
+    resetForm();
+    onClose();
   };
 
   const TaskCard = ({ task }) => (
@@ -291,6 +399,7 @@ const TasksPage = () => {
         <Button 
           colorScheme="blue" 
           leftIcon={<AddIcon />}
+          onClick={onOpen}
           size="lg"
           borderRadius="xl"
           px={6}
@@ -339,6 +448,202 @@ const TasksPage = () => {
           count={tasksByStatus['Done'].length}
         />
       </Flex>
+
+      {/* Create Task Modal */}
+      <Modal isOpen={isOpen} onClose={handleModalClose} size="xl">
+        <ModalOverlay bg="blackAlpha.800" />
+        <ModalContent bg="gray.800" border="1px" borderColor="gray.700">
+          <ModalHeader color="white">
+            <HStack spacing={3}>
+              <Icon as={FaTasks} color="blue.400" />
+              <Text>Create New Task</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton color="gray.400" />
+          
+          <ModalBody pb={6}>
+            <VStack spacing={6}>
+              {/* Task Title */}
+              <FormControl isRequired>
+                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
+                  Task Title
+                </FormLabel>
+                <InputGroup>
+                  <InputLeftElement pointerEvents="none">
+                    <Icon as={FaTasks} color="gray.500" />
+                  </InputLeftElement>
+                  <Input
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    placeholder="Enter task title"
+                    bg="gray.700"
+                    border="1px"
+                    borderColor="gray.600"
+                    color="white"
+                    _hover={{ borderColor: "gray.500" }}
+                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
+                    pl={10}
+                  />
+                </InputGroup>
+              </FormControl>
+
+              {/* Task Description */}
+              <FormControl isRequired>
+                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
+                  Description
+                </FormLabel>
+                <Textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Describe the task..."
+                  bg="gray.700"
+                  border="1px"
+                  borderColor="gray.600"
+                  color="white"
+                  _hover={{ borderColor: "gray.500" }}
+                  _focus={{ borderColor: "blue.500", bg: "gray.700" }}
+                  rows={4}
+                  resize="vertical"
+                />
+              </FormControl>
+
+              {/* Assignee and Status Row */}
+              <SimpleGrid columns={2} spacing={4} w="full">
+                <FormControl>
+                  <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
+                    Assigned To
+                  </FormLabel>
+                  <InputGroup>
+                    <InputLeftElement pointerEvents="none">
+                      <Icon as={FaUser} color="gray.500" />
+                    </InputLeftElement>
+                    <Select
+                      name="assignedTo"
+                      value={formData.assignedTo}
+                      onChange={handleInputChange}
+                      bg="gray.700"
+                      border="1px"
+                      borderColor="gray.600"
+                      color="white"
+                      _hover={{ borderColor: "gray.500" }}
+                      _focus={{ borderColor: "blue.500", bg: "gray.700" }}
+                      pl={10}
+                    >
+                      <option value="You" style={{ backgroundColor: '#2D3748' }}>You</option>
+                      <option value="Alice Johnson" style={{ backgroundColor: '#2D3748' }}>Alice Johnson</option>
+                      <option value="Bob Smith" style={{ backgroundColor: '#2D3748' }}>Bob Smith</option>
+                      <option value="Charlie Davis" style={{ backgroundColor: '#2D3748' }}>Charlie Davis</option>
+                      <option value="David Wilson" style={{ backgroundColor: '#2D3748' }}>David Wilson</option>
+                      <option value="Emma Brown" style={{ backgroundColor: '#2D3748' }}>Emma Brown</option>
+                    </Select>
+                  </InputGroup>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
+                    Initial Status
+                  </FormLabel>
+                  <Select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    bg="gray.700"
+                    border="1px"
+                    borderColor="gray.600"
+                    color="white"
+                    _hover={{ borderColor: "gray.500" }}
+                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
+                  >
+                    <option value="To Do" style={{ backgroundColor: '#2D3748' }}>To Do</option>
+                    <option value="In Progress" style={{ backgroundColor: '#2D3748' }}>In Progress</option>
+                    <option value="Done" style={{ backgroundColor: '#2D3748' }}>Done</option>
+                  </Select>
+                </FormControl>
+              </SimpleGrid>
+
+              {/* Due Date */}
+              <FormControl isRequired>
+                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
+                  Due Date
+                </FormLabel>
+                <InputGroup>
+                  <InputLeftElement pointerEvents="none">
+                    <Icon as={FaCalendarAlt} color="gray.500" />
+                  </InputLeftElement>
+                  <Input
+                    name="dueDate"
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={handleInputChange}
+                    bg="gray.700"
+                    border="1px"
+                    borderColor="gray.600"
+                    color="white"
+                    _hover={{ borderColor: "gray.500" }}
+                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
+                    pl={10}
+                  />
+                </InputGroup>
+              </FormControl>
+
+              {/* Tags */}
+              <FormControl>
+                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
+                  Tags
+                </FormLabel>
+                <Box
+                  bg="gray.700"
+                  border="1px"
+                  borderColor="gray.600"
+                  borderRadius="md"
+                  p={4}
+                  _hover={{ borderColor: "gray.500" }}
+                >
+                  <CheckboxGroup 
+                    colorScheme="blue" 
+                    value={formData.tags} 
+                    onChange={handleTagChange}
+                  >
+                    <SimpleGrid columns={2} spacing={3}>
+                      <Checkbox value="Frontend" color="white">Frontend</Checkbox>
+                      <Checkbox value="Backend" color="white">Backend</Checkbox>
+                      <Checkbox value="UI/UX" color="white">UI/UX</Checkbox>
+                      <Checkbox value="API" color="white">API</Checkbox>
+                      <Checkbox value="Bug Fix" color="white">Bug Fix</Checkbox>
+                      <Checkbox value="Database" color="white">Database</Checkbox>
+                      <Checkbox value="Analytics" color="white">Analytics</Checkbox>
+                      <Checkbox value="Testing" color="white">Testing</Checkbox>
+                    </SimpleGrid>
+                  </CheckboxGroup>
+                </Box>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button 
+              variant="ghost" 
+              mr={3} 
+              onClick={handleModalClose}
+              color="gray.400"
+              _hover={{ color: "white", bg: "gray.700" }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              colorScheme="blue" 
+              onClick={handleCreateTask}
+              leftIcon={<AddIcon />}
+              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
+              transition="all 0.2s"
+            >
+              Create Task
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 };

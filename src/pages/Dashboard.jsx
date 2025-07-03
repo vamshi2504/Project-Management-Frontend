@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import {
   Box,
   Flex,
@@ -14,6 +15,28 @@ import {
   Stack,
   Avatar,
   AvatarGroup,
+  IconButton,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Input,
+  Textarea,
+  Select,
+  Button,
+  useToast,
+  InputGroup,
+  InputLeftElement,
 } from '@chakra-ui/react';
 import {
   FaTasks,
@@ -23,9 +46,64 @@ import {
   FaProjectDiagram,
   FaUsers,
   FaCalendarAlt,
+  FaEllipsisV,
+  FaEdit,
+  FaUserPlus,
+  FaUser,
 } from 'react-icons/fa';
+import { EditIcon } from '@chakra-ui/icons';
 
 const Dashboard = () => {
+  const [projects, setProjects] = useState([
+    { 
+      id: 1,
+      name: 'E-commerce Platform', 
+      progress: 85, 
+      members: 4, 
+      deadline: '2 days',
+      owner: 'You',
+      team: ['You', 'Alice Johnson', 'Bob Smith', 'Carol Davis'],
+      description: 'Building a modern e-commerce platform with advanced features'
+    },
+    { 
+      id: 2,
+      name: 'Mobile App Development', 
+      progress: 62, 
+      members: 6, 
+      deadline: '1 week',
+      owner: 'Alice Johnson',
+      team: ['Alice Johnson', 'David Wilson', 'Emma Brown', 'Frank Miller', 'Grace Lee', 'Henry Taylor'],
+      description: 'Developing a cross-platform mobile application'
+    },
+    { 
+      id: 3,
+      name: 'UI/UX Redesign', 
+      progress: 40, 
+      members: 3, 
+      deadline: '3 weeks',
+      owner: 'You',
+      team: ['You', 'Sarah Connor', 'Mike Ross'],
+      description: 'Complete redesign of the user interface and experience'
+    },
+  ]);
+
+  const [editFormData, setEditFormData] = useState({
+    id: null,
+    name: '',
+    description: '',
+    deadline: '',
+  });
+
+  const [memberFormData, setMemberFormData] = useState({
+    projectId: null,
+    memberName: '',
+  });
+
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const { isOpen: isMemberOpen, onOpen: onMemberOpen, onClose: onMemberClose } = useDisclosure();
+  const toast = useToast();
+  const currentUser = 'You'; // This would come from authentication context
+
   const cardBg = useColorModeValue('white', 'gray.800');
   const textColor = useColorModeValue('gray.700', 'gray.100');
   const iconColor = useColorModeValue('teal.500', 'teal.300');
@@ -74,11 +152,106 @@ const Dashboard = () => {
     },
   ];
 
-  const projects = [
-    { name: 'E-commerce Platform', progress: 85, members: 4, deadline: '2 days' },
-    { name: 'Mobile App Development', progress: 62, members: 6, deadline: '1 week' },
-    { name: 'UI/UX Redesign', progress: 40, members: 3, deadline: '3 weeks' },
-  ];
+  // Handler functions
+  const handleEditProject = (project) => {
+    setEditFormData({
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      deadline: new Date(Date.now() + parseInt(project.deadline.split(' ')[0]) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    });
+    onEditOpen();
+  };
+
+  const handleAddMember = (projectId) => {
+    setMemberFormData({
+      projectId,
+      memberName: '',
+    });
+    onMemberOpen();
+  };
+
+  const handleEditSubmit = () => {
+    if (!editFormData.name || !editFormData.description || !editFormData.deadline) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all required fields.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setProjects(prev => prev.map(project => 
+      project.id === editFormData.id 
+        ? { 
+            ...project, 
+            name: editFormData.name,
+            description: editFormData.description,
+            deadline: calculateDeadlineText(editFormData.deadline),
+          }
+        : project
+    ));
+
+    toast({
+      title: 'Success',
+      description: 'Project updated successfully!',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+
+    onEditClose();
+  };
+
+  const handleMemberSubmit = () => {
+    if (!memberFormData.memberName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a member name.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setProjects(prev => prev.map(project => 
+      project.id === memberFormData.projectId 
+        ? { 
+            ...project, 
+            team: [...project.team, memberFormData.memberName],
+            members: project.members + 1,
+          }
+        : project
+    ));
+
+    toast({
+      title: 'Success',
+      description: 'Member added successfully!',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    });
+
+    setMemberFormData({ projectId: null, memberName: '' });
+    onMemberClose();
+  };
+
+  const calculateDeadlineText = (deadline) => {
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 0) return 'Overdue';
+    if (diffDays === 1) return '1 day';
+    if (diffDays < 7) return `${diffDays} days`;
+    if (diffDays < 14) return '1 week';
+    if (diffDays < 21) return '2 weeks';
+    return '3+ weeks';
+  };
 
   const recentActivities = [
     { action: 'Task completed', project: 'E-commerce Platform', time: '2 hours ago' },
@@ -179,12 +352,44 @@ const Dashboard = () => {
         
         <Stack spacing={6}>
           {projects.map((project, index) => (
-            <Box key={index}>
+            <Box key={project.id} position="relative">
               <Flex justify="space-between" align="center" mb={3}>
-                <VStack align="start" spacing={1}>
-                  <Text fontWeight="semibold" color={textColor}>
-                    {project.name}
-                  </Text>
+                <VStack align="start" spacing={1} flex="1">
+                  <Flex justify="space-between" align="center" w="full">
+                    <Text fontWeight="semibold" color={textColor}>
+                      {project.name}
+                    </Text>
+                    {/* Action Menu - Only visible to project owner */}
+                    {project.owner === currentUser && (
+                      <Menu>
+                        <MenuButton
+                          as={IconButton}
+                          icon={<Icon as={FaEllipsisV} />}
+                          variant="ghost"
+                          size="sm"
+                          color="gray.500"
+                          _hover={{ color: textColor, bg: useColorModeValue('gray.100', 'gray.700') }}
+                          aria-label="Project actions"
+                        />
+                        <MenuList bg={cardBg} borderColor={borderColor}>
+                          <MenuItem 
+                            icon={<Icon as={FaEdit} />}
+                            onClick={() => handleEditProject(project)}
+                            _hover={{ bg: useColorModeValue('gray.100', 'gray.700') }}
+                          >
+                            Edit Project
+                          </MenuItem>
+                          <MenuItem 
+                            icon={<Icon as={FaUserPlus} />}
+                            onClick={() => handleAddMember(project.id)}
+                            _hover={{ bg: useColorModeValue('gray.100', 'gray.700') }}
+                          >
+                            Add Member
+                          </MenuItem>
+                        </MenuList>
+                      </Menu>
+                    )}
+                  </Flex>
                   <HStack spacing={4}>
                     <HStack spacing={1}>
                       <Icon as={FaUsers} boxSize={3} color="gray.500" />
@@ -198,6 +403,12 @@ const Dashboard = () => {
                         Due in {project.deadline}
                       </Text>
                     </HStack>
+                    <HStack spacing={1}>
+                      <Icon as={FaUser} boxSize={3} color="gray.500" />
+                      <Text fontSize="sm" color="gray.500">
+                        Owner: {project.owner}
+                      </Text>
+                    </HStack>
                   </HStack>
                 </VStack>
                 <VStack align="end" spacing={1}>
@@ -205,9 +416,9 @@ const Dashboard = () => {
                     {project.progress}%
                   </Text>
                   <AvatarGroup size="sm" max={3}>
-                    <Avatar name="User 1" src="" />
-                    <Avatar name="User 2" src="" />
-                    <Avatar name="User 3" src="" />
+                    {project.team.slice(0, 3).map((member, memberIndex) => (
+                      <Avatar key={memberIndex} name={member} src="" />
+                    ))}
                   </AvatarGroup>
                 </VStack>
               </Flex>
@@ -223,7 +434,171 @@ const Dashboard = () => {
         </Stack>
       </Box>
 
-      {/* Recent Activity */}
+      {/* Edit Project Modal */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
+        <ModalOverlay bg="blackAlpha.800" />
+        <ModalContent bg={cardBg} border="1px" borderColor={borderColor}>
+          <ModalHeader color={textColor}>
+            <HStack spacing={3}>
+              <Icon as={FaEdit} color="blue.400" />
+              <Text>Edit Project</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton color="gray.400" />
+          
+          <ModalBody pb={6}>
+            <VStack spacing={6}>
+              <FormControl isRequired>
+                <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
+                  Project Name
+                </FormLabel>
+                <InputGroup>
+                  <InputLeftElement pointerEvents="none">
+                    <Icon as={FaProjectDiagram} color="gray.500" />
+                  </InputLeftElement>
+                  <Input
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter project name"
+                    bg={useColorModeValue('white', 'gray.700')}
+                    border="1px"
+                    borderColor={borderColor}
+                    color={textColor}
+                    _hover={{ borderColor: "gray.500" }}
+                    _focus={{ borderColor: "blue.500" }}
+                    pl={10}
+                  />
+                </InputGroup>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
+                  Description
+                </FormLabel>
+                <Textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Describe your project..."
+                  bg={useColorModeValue('white', 'gray.700')}
+                  border="1px"
+                  borderColor={borderColor}
+                  color={textColor}
+                  _hover={{ borderColor: "gray.500" }}
+                  _focus={{ borderColor: "blue.500" }}
+                  rows={4}
+                  resize="vertical"
+                />
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
+                  Deadline
+                </FormLabel>
+                <InputGroup>
+                  <InputLeftElement pointerEvents="none">
+                    <Icon as={FaCalendarAlt} color="gray.500" />
+                  </InputLeftElement>
+                  <Input
+                    type="date"
+                    value={editFormData.deadline}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, deadline: e.target.value }))}
+                    bg={useColorModeValue('white', 'gray.700')}
+                    border="1px"
+                    borderColor={borderColor}
+                    color={textColor}
+                    _hover={{ borderColor: "gray.500" }}
+                    _focus={{ borderColor: "blue.500" }}
+                    pl={10}
+                  />
+                </InputGroup>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button 
+              variant="ghost" 
+              mr={3} 
+              onClick={onEditClose}
+              color="gray.400"
+              _hover={{ color: textColor, bg: useColorModeValue('gray.100', 'gray.700') }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              colorScheme="blue" 
+              onClick={handleEditSubmit}
+              leftIcon={<EditIcon />}
+              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
+              transition="all 0.2s"
+            >
+              Update Project
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Add Member Modal */}
+      <Modal isOpen={isMemberOpen} onClose={onMemberClose} size="md">
+        <ModalOverlay bg="blackAlpha.800" />
+        <ModalContent bg={cardBg} border="1px" borderColor={borderColor}>
+          <ModalHeader color={textColor}>
+            <HStack spacing={3}>
+              <Icon as={FaUserPlus} color="green.400" />
+              <Text>Add Team Member</Text>
+            </HStack>
+          </ModalHeader>
+          <ModalCloseButton color="gray.400" />
+          
+          <ModalBody pb={6}>
+            <FormControl isRequired>
+              <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
+                Member Name
+              </FormLabel>
+              <InputGroup>
+                <InputLeftElement pointerEvents="none">
+                  <Icon as={FaUser} color="gray.500" />
+                </InputLeftElement>
+                <Input
+                  value={memberFormData.memberName}
+                  onChange={(e) => setMemberFormData(prev => ({ ...prev, memberName: e.target.value }))}
+                  placeholder="Enter member name"
+                  bg={useColorModeValue('white', 'gray.700')}
+                  border="1px"
+                  borderColor={borderColor}
+                  color={textColor}
+                  _hover={{ borderColor: "gray.500" }}
+                  _focus={{ borderColor: "blue.500" }}
+                  pl={10}
+                />
+              </InputGroup>
+            </FormControl>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button 
+              variant="ghost" 
+              mr={3} 
+              onClick={onMemberClose}
+              color="gray.400"
+              _hover={{ color: textColor, bg: useColorModeValue('gray.100', 'gray.700') }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              colorScheme="green" 
+              onClick={handleMemberSubmit}
+              leftIcon={<Icon as={FaUserPlus} />}
+              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
+              transition="all 0.2s"
+            >
+              Add Member
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Recent Activity
       <Box
         bg={cardBg}
         borderRadius="2xl"
@@ -257,8 +632,8 @@ const Dashboard = () => {
             </Flex>
           ))}
         </Stack>
-      </Box>
-    </Box>
+      </Box>*/}
+    </Box> 
   );
 };
 
