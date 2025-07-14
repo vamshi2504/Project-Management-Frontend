@@ -15,201 +15,202 @@ import {
   Icon,
   HStack,
   VStack,
-  Divider,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalFooter,
-  ModalBody,
-  ModalCloseButton,
-  FormControl,
-  FormLabel,
+  Card,
+  CardHeader,
+  CardBody,
+  useColorModeValue,
   Input,
-  Textarea,
-  Select,
-  useToast,
   InputGroup,
   InputLeftElement,
-  IconButton,
+  Select,
   Menu,
   MenuButton,
   MenuList,
   MenuItem,
-  MenuDivider,
+  IconButton,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  FormControl,
+  FormLabel,
+  Textarea,
+  ModalFooter,
+  useToast,
+  Stat,
+  StatLabel,
+  StatNumber,
+  StatHelpText,
+  Tooltip,
 } from '@chakra-ui/react';
-import { AddIcon, CalendarIcon, TimeIcon, EditIcon, SettingsIcon } from '@chakra-ui/icons';
-import { FaUser, FaUsers, FaClock, FaProjectDiagram, FaFileAlt, FaCalendarAlt, FaUserPlus, FaEllipsisV } from 'react-icons/fa';
+import {
+  FaSearch,
+  FaPlus,
+  FaUsers,
+  FaClock,
+  FaProjectDiagram,
+  FaCalendarAlt,
+  FaEllipsisV,
+  FaEdit,
+  FaTrash,
+  FaEye,
+  FaChartLine,
+} from 'react-icons/fa';
+import { Link as RouterLink } from 'react-router-dom';
 
-const mockProjects = [
-  {
-    id: 1,
-    name: 'Task Manager',
-    description: 'A comprehensive task management system with real-time collaboration',
-    owner: 'Alice Johnson',
-    progress: 60,
-    deadline: '2025-07-30',
-    status: 'In Progress',
-    team: ['Alice Johnson', 'Bob Smith', 'Carol Davis'],
-    tasksCompleted: 12,
-    totalTasks: 20,
-  },
-  {
-    id: 2,
-    name: 'E-Commerce Platform',
-    description: 'Modern e-commerce solution with advanced analytics and payment integration',
-    owner: 'Bob Smith',
-    progress: 90,
-    deadline: '2025-07-20',
-    status: 'Completed',
-    team: ['David Wilson', 'Emma Brown'],
-    tasksCompleted: 18,
-    totalTasks: 20,
-  },
-  {
-    id: 3,
-    name: 'Project Tracker UI',
-    description: 'Intuitive project tracking interface with dashboard and reporting features',
-    owner: 'You',
-    progress: 35,
-    deadline: '2025-08-15',
-    status: 'Pending',
-    team: ['Frank Miller', 'Grace Lee', 'Henry Taylor'],
-    tasksCompleted: 7,
-    totalTasks: 20,
-  },
-];
-
-const ProjectsPage = () => {
-  const [projects, setProjects] = useState(mockProjects);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    owner: 'You',
-    deadline: '',
-    status: 'Pending',
-  });
-  const [editFormData, setEditFormData] = useState({
-    id: null,
-    name: '',
-    description: '',
-    owner: '',
-    deadline: '',
-    status: '',
-  });
-  const [memberFormData, setMemberFormData] = useState({
-    projectId: null,
-    memberName: '',
-  });
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
-  const { isOpen: isMemberOpen, onOpen: onMemberOpen, onClose: onMemberClose } = useDisclosure();
+const Projects = () => {
   const navigate = useNavigate();
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const cardContentBg = useColorModeValue('white', 'gray.700');
+  const cardHeaderBg = useColorModeValue('blue.50', 'gray.700');
+  const borderColor = useColorModeValue('gray.200', 'gray.600');
+  const textColor = useColorModeValue('gray.800', 'gray.100');
+  const mutedTextColor = useColorModeValue('gray.600', 'gray.300');
   const toast = useToast();
-  const currentUser = 'You'; // This would come from authentication context
+  const gradientBg = useColorModeValue(
+    'linear(135deg, blue.400 0%, purple.400 25%, teal.400 50%, green.400 75%, blue.400 100%)',
+    'linear(135deg, blue.600 0%, purple.600 25%, teal.600 50%, green.600 75%, blue.600 100%)'
+  );
 
-  const handleProjectClick = (projectId) => {
-    navigate(`/projects/${projectId}`);
-  };
+  const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  // Filter and sort states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [roleFilter, setRoleFilter] = useState('All');
+  const [sortBy, setSortBy] = useState('name');
 
-  const handleCreateProject = () => {
-    // Validate required fields
-    if (!formData.name || !formData.description || !formData.deadline) {
-      toast({
-        title: 'Error',
-        description: 'Please fill in all required fields.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
+  // New project form state
+  const [newProject, setNewProject] = useState({
+    name: '',
+    description: '',
+    startDate: '',
+    deadline: '',
+    priority: 'Medium',
+    tags: '',
+  });
 
-    // Create new project
-    const newProject = {
-      id: Date.now(), // Simple ID generation
-      name: formData.name,
-      description: formData.description,
-      owner: formData.owner,
-      progress: 0,
-      deadline: formData.deadline,
-      status: formData.status,
-      team: [formData.owner], // Start with just the owner
-      tasksCompleted: 0,
-      totalTasks: 0,
-    };
-
-    // Add to projects list
-    setProjects(prev => [newProject, ...prev]);
-
-    // Reset form
-    setFormData({
-      name: '',
-      description: '',
+  // Mock projects data
+  const [projects, setProjects] = useState([
+    {
+      id: 1,
+      name: 'E-commerce Platform',
+      description: 'Building a modern e-commerce platform with advanced features including payment integration, inventory management, and analytics.',
+      role: 'Project Manager',
+      status: 'Active',
+      progress: 85,
+      startDate: '2024-01-15',
+      deadline: '2024-08-15',
+      memberCount: 8,
+      priority: 'High',
+      tags: ['Frontend', 'Backend', 'Database'],
+      members: [
+        { name: 'John Doe', role: 'Frontend Developer' },
+        { name: 'Jane Smith', role: 'Backend Developer' },
+        { name: 'Mike Johnson', role: 'UI/UX Designer' },
+        { name: 'Sarah Wilson', role: 'QA Engineer' },
+      ],
+      totalTasks: 45,
+      completedTasks: 38,
       owner: 'You',
-      deadline: '',
-      status: 'Pending',
-    });
-
-    // Close modal
-    onClose();
-
-    // Show success toast
-    toast({
-      title: 'Success',
-      description: 'Project created successfully!',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
+    },
+    {
+      id: 2,
+      name: 'Mobile App Development',
+      description: 'Cross-platform mobile application for task management with real-time synchronization and offline capabilities.',
+      role: 'Senior Developer',
+      status: 'Active',
+      progress: 62,
+      startDate: '2024-02-01',
+      deadline: '2024-09-01',
+      memberCount: 6,
+      priority: 'High',
+      tags: ['React Native', 'API', 'Mobile'],
+      members: [
+        { name: 'Alice Davis', role: 'Mobile Developer' },
+        { name: 'Tom Brown', role: 'Backend Developer' },
+        { name: 'Lisa Chen', role: 'UI/UX Designer' },
+      ],
+      totalTasks: 32,
+      completedTasks: 20,
+      owner: 'Alice Davis',
+    },
+    {
+      id: 3,
+      name: 'UI/UX Redesign',
+      description: 'Complete redesign of the user interface and experience for better usability and modern aesthetics.',
+      role: 'Lead Designer',
+      status: 'Planning',
+      progress: 25,
+      startDate: '2024-03-01',
+      deadline: '2024-07-30',
+      memberCount: 4,
+      priority: 'Medium',
+      tags: ['Design', 'Research', 'Prototyping'],
+      members: [
+        { name: 'Emma Wilson', role: 'UX Designer' },
+        { name: 'David Kim', role: 'UI Designer' },
+        { name: 'Chris Lee', role: 'UX Researcher' },
+      ],
+      totalTasks: 28,
+      completedTasks: 7,
       owner: 'You',
-      deadline: '',
-      status: 'Pending',
-    });
-  };
-
-  const handleModalClose = () => {
-    resetForm();
-    onClose();
-  };
+    },
+    {
+      id: 4,
+      name: 'API Documentation',
+      description: 'Comprehensive API documentation with interactive examples and integration guides.',
+      role: 'Technical Writer',
+      status: 'Completed',
+      progress: 100,
+      startDate: '2024-01-01',
+      deadline: '2024-03-01',
+      memberCount: 3,
+      priority: 'Low',
+      tags: ['Documentation', 'API'],
+      members: [
+        { name: 'Robert Johnson', role: 'Technical Writer' },
+        { name: 'Maria Garcia', role: 'Developer' },
+      ],
+      totalTasks: 15,
+      completedTasks: 15,
+      owner: 'Robert Johnson',
+    },
+  ]);
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Completed':
-        return 'green';
-      case 'In Progress':
-        return 'blue';
-      case 'Pending':
-        return 'orange';
-      default:
-        return 'gray';
+      case 'Active': return 'green';
+      case 'Planning': return 'blue';
+      case 'Completed': return 'gray';
+      case 'On Hold': return 'yellow';
+      default: return 'gray';
     }
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric' 
-    });
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'High': return 'red';
+      case 'Medium': return 'yellow';
+      case 'Low': return 'green';
+      default: return 'gray';
+    }
   };
 
-  const getDaysRemaining = (deadline) => {
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'Project Manager': return 'purple';
+      case 'Lead Designer': return 'pink';
+      case 'Senior Developer': return 'blue';
+      case 'Technical Writer': return 'teal';
+      default: return 'gray';
+    }
+  };
+
+  const calculateDaysLeft = (deadline) => {
     const today = new Date();
     const deadlineDate = new Date(deadline);
     const diffTime = deadlineDate - today;
@@ -217,32 +218,38 @@ const ProjectsPage = () => {
     return diffDays;
   };
 
-  // Handler functions for edit and add member
-  const handleEditProject = (project) => {
-    setEditFormData({
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      owner: project.owner,
-      deadline: project.deadline,
-      status: project.status,
-    });
-    onEditOpen();
+  const getProgressColor = (progress) => {
+    if (progress >= 80) return 'green';
+    if (progress >= 50) return 'blue';
+    if (progress >= 25) return 'yellow';
+    return 'red';
   };
 
-  const handleAddMember = (projectId) => {
-    setMemberFormData({
-      projectId,
-      memberName: '',
+  const filteredAndSortedProjects = projects
+    .filter(project => {
+      const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           project.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || project.status === statusFilter;
+      const matchesRole = roleFilter === 'All' || project.role === roleFilter;
+      return matchesSearch && matchesStatus && matchesRole;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name': return a.name.localeCompare(b.name);
+        case 'progress': return b.progress - a.progress;
+        case 'deadline': return new Date(a.deadline) - new Date(b.deadline);
+        case 'priority': 
+          const priorityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+          return priorityOrder[b.priority] - priorityOrder[a.priority];
+        default: return 0;
+      }
     });
-    onMemberOpen();
-  };
 
-  const handleEditSubmit = () => {
-    if (!editFormData.name || !editFormData.description || !editFormData.deadline) {
+  const handleCreateProject = () => {
+    if (!newProject.name.trim() || !newProject.description.trim()) {
       toast({
         title: 'Error',
-        description: 'Please fill in all required fields.',
+        description: 'Please fill in project name and description',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -250,933 +257,1058 @@ const ProjectsPage = () => {
       return;
     }
 
-    setProjects(prev => prev.map(project => 
-      project.id === editFormData.id 
-        ? { 
-            ...project, 
-            name: editFormData.name,
-            description: editFormData.description,
-            owner: editFormData.owner,
-            deadline: editFormData.deadline,
-            status: editFormData.status,
-          }
-        : project
-    ));
+    const project = {
+      id: Date.now(),
+      ...newProject,
+      role: 'Project Manager',
+      status: 'Planning',
+      progress: 0,
+      memberCount: 1,
+      members: [{ name: 'You', role: 'Project Manager' }],
+      totalTasks: 0,
+      completedTasks: 0,
+      owner: 'You',
+      tags: newProject.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+    };
 
+    setProjects(prev => [...prev, project]);
+    
     toast({
       title: 'Success',
-      description: 'Project updated successfully!',
+      description: 'Project created successfully!',
       status: 'success',
       duration: 3000,
       isClosable: true,
     });
 
-    onEditClose();
-  };
-
-  const handleMemberSubmit = () => {
-    if (!memberFormData.memberName.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a member name.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    setProjects(prev => prev.map(project => 
-      project.id === memberFormData.projectId 
-        ? { 
-            ...project, 
-            team: [...project.team, memberFormData.memberName],
-          }
-        : project
-    ));
-
-    toast({
-      title: 'Success',
-      description: 'Member added successfully!',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
+    setNewProject({
+      name: '',
+      description: '',
+      startDate: '',
+      deadline: '',
+      priority: 'Medium',
+      tags: '',
     });
 
-    setMemberFormData({ projectId: null, memberName: '' });
-    onMemberClose();
+    onCreateClose();
   };
 
-  const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  // Stats calculation
+  const totalProjects = projects.length;
+  const activeProjects = projects.filter(p => p.status === 'Active').length;
+  const completedProjects = projects.filter(p => p.status === 'Completed').length;
+  const averageProgress = Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / totalProjects);
 
   return (
-    <Box px={8} py={6} bg="gray.900" minH="100vh">
-      {/* Header */}
-      <Flex justify="space-between" align="center" mb={8}>
-        <VStack align="start" spacing={1}>
-          <Heading size="xl" color="white">
-            My Projects
-          </Heading>
-          <Text color="gray.400" fontSize="lg">
-            Manage and track your project progress
-          </Text>
-        </VStack>
-        <Button 
-          colorScheme="blue" 
-          leftIcon={<AddIcon />} 
-          onClick={onOpen}
-          size="lg"
-          borderRadius="xl"
-          px={6}
-          _hover={{ transform: 'translateY(-2px)', boxShadow: 'xl' }}
-          transition="all 0.2s"
-        >
-          Create Project
-        </Button>
-      </Flex>
-
-      {/* Stats Overview */}
-      <SimpleGrid columns={[1, 3]} spacing={6} mb={8}>
+    <Box 
+      minH="100vh" 
+      bg={bgColor}
+      position="relative"
+      overflow="hidden"
+      px={{ base: 4, md: 6 }}
+      py={{ base: 4, md: 6 }}
+    >
+      {/* Animated Background Elements */}
+      <Box
+        position="absolute"
+        top="-10%"
+        right="-10%"
+        width="250px"
+        height="250px"
+        borderRadius="full"
+        bgGradient="linear(135deg, blue.400, purple.400)"
+        opacity={0.1}
+        animation="float 6s ease-in-out infinite"
+        zIndex={0}
+      />
+      <Box
+        position="absolute"
+        bottom="-5%"
+        left="-5%"
+        width="180px"
+        height="180px"
+        borderRadius="full"
+        bgGradient="linear(135deg, teal.400, green.400)"
+        opacity={0.1}
+        animation="float 8s ease-in-out infinite reverse"
+        zIndex={0}
+      />
+      
+      <VStack align="stretch" spacing={8} position="relative" zIndex={1} p={6}>
+        {/* Header Section with Gradient */}
         <Box
-          p={6}
-          bg="gray.800"
+          bgGradient={gradientBg}
           borderRadius="2xl"
-          border="1px"
-          borderColor="gray.700"
-          _hover={{ borderColor: "blue.500", transform: "translateY(-2px)" }}
-          transition="all 0.3s"
+          p={8}
+          color="white"
+          position="relative"
+          overflow="hidden"
+          transform="translateY(0)"
+          transition="all 0.3s ease"
+          _hover={{
+            transform: "translateY(-2px)",
+            shadow: "2xl"
+          }}
         >
-          <VStack align="start" spacing={2}>
-            <Text color="gray.400" fontSize="sm" fontWeight="medium">
-              Total Projects
-            </Text>
-            <Text color="white" fontSize="3xl" fontWeight="bold">
-              {projects.length}
-            </Text>
-          </VStack>
-        </Box>
-        <Box
-          p={6}
-          bg="gray.800"
-          borderRadius="2xl"
-          border="1px"
-          borderColor="gray.700"
-          _hover={{ borderColor: "green.500", transform: "translateY(-2px)" }}
-          transition="all 0.3s"
-        >
-          <VStack align="start" spacing={2}>
-            <Text color="gray.400" fontSize="sm" fontWeight="medium">
-              Completed
-            </Text>
-            <Text color="green.400" fontSize="3xl" fontWeight="bold">
-              {projects.filter(p => p.status === 'Completed').length}
-            </Text>
-          </VStack>
-        </Box>
-        <Box
-          p={6}
-          bg="gray.800"
-          borderRadius="2xl"
-          border="1px"
-          borderColor="gray.700"
-          _hover={{ borderColor: "orange.500", transform: "translateY(-2px)" }}
-          transition="all 0.3s"
-        >
-          <VStack align="start" spacing={2}>
-            <Text color="gray.400" fontSize="sm" fontWeight="medium">
-              In Progress
-            </Text>
-            <Text color="orange.400" fontSize="3xl" fontWeight="bold">
-              {projects.filter(p => p.status === 'In Progress').length}
-            </Text>
-          </VStack>
-        </Box>
-      </SimpleGrid>
-
-      {/* Grid of Project Cards */}
-      <SimpleGrid columns={[1, 2, 3]} spacing={8}>
-        {projects.map((project) => (
           <Box
-            key={project.id}
-            p={6}
-            bg="gray.800"
-            borderRadius="2xl"
-            border="1px"
-            borderColor="gray.700"
-            boxShadow="xl"
-            _hover={{ 
-              boxShadow: '2xl', 
-              transform: 'translateY(-4px)',
-              borderColor: 'gray.600',
-              cursor: 'pointer'
-            }}
-            transition="all 0.3s ease"
-            position="relative"
-            overflow="hidden"
-            onClick={() => handleProjectClick(project.id)}
-          >
-            {/* Header */}
-            <Flex justify="space-between" align="flex-start" mb={4}>
-              <VStack align="start" spacing={1} flex="1">
-                <Flex justify="space-between" align="center" w="full">
-                  <Heading size="md" color="white" noOfLines={1}>
-                    {project.name}
-                  </Heading>
-                  {/* Action Menu - Only visible to project owner */}
-                  {project.owner === currentUser && (
-                    <Menu>
-                      <MenuButton
-                        as={IconButton}
-                        icon={<Icon as={FaEllipsisV} />}
-                        variant="ghost"
-                        size="sm"
-                        color="gray.500"
-                        _hover={{ color: "white", bg: "gray.700" }}
-                        aria-label="Project actions"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <MenuList bg="gray.800" borderColor="gray.700">
-                        <MenuItem 
-                          icon={<Icon as={EditIcon} />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditProject(project);
-                          }}
-                          _hover={{ bg: "gray.700" }}
-                          color="white"
-                        >
-                          Edit Project
-                        </MenuItem>
-                        <MenuItem 
-                          icon={<Icon as={FaUserPlus} />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddMember(project.id);
-                          }}
-                          _hover={{ bg: "gray.700" }}
-                          color="white"
-                        >
-                          Add Member
-                        </MenuItem>
-                      </MenuList>
-                    </Menu>
-                  )}
-                </Flex>
-                <Text color="gray.400" fontSize="sm" noOfLines={2}>
-                  {project.description}
-                </Text>
-              </VStack>
-              <Badge 
-                colorScheme={getStatusColor(project.status)}
-                borderRadius="full"
-                px={3}
-                py={1}
-                ml={4}
+            position="absolute"
+            top="0"
+            left="0"
+            right="0"
+            bottom="0"
+            bgGradient="linear(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%)"
+            animation="shimmer 3s ease-in-out infinite"
+          />
+          <Flex justify="space-between" align="center" position="relative" zIndex={1}>
+            <Box>
+              <Heading 
+                size="2xl" 
+                mb={3} 
+                fontWeight="bold"
+                textShadow="0 2px 4px rgba(0,0,0,0.3)"
+                animation="slideInLeft 0.8s ease-out"
               >
-                {project.status}
-              </Badge>
-            </Flex>
-
-            {/* Owner & Deadline */}
-            <VStack spacing={3} mb={4}>
-              <Flex justify="space-between" w="full">
-                <HStack spacing={2}>
-                  <Icon as={FaUser} color="gray.500" boxSize={3} />
-                  <Text color="gray.300" fontSize="sm">
-                    {project.owner}
-                  </Text>
-                </HStack>
-                <HStack spacing={2}>
-                  <Icon as={FaClock} color="gray.500" boxSize={3} />
-                  <Text 
-                    color={getDaysRemaining(project.deadline) < 7 ? "red.400" : "gray.300"} 
-                    fontSize="sm"
-                  >
-                    {formatDate(project.deadline)}
-                  </Text>
-                </HStack>
-              </Flex>
-              
-              {getDaysRemaining(project.deadline) >= 0 && (
-                <Text 
-                  color={getDaysRemaining(project.deadline) < 7 ? "red.400" : "gray.400"} 
-                  fontSize="xs"
-                  alignSelf="end"
-                >
-                  {getDaysRemaining(project.deadline)} days remaining
-                </Text>
-              )}
-            </VStack>
-
-            <Divider borderColor="gray.700" mb={4} />
-
-            {/* Progress Section */}
-            <Box mb={4}>
-              <Flex justify="space-between" align="center" mb={2}>
-                <Text color="gray.400" fontSize="sm" fontWeight="medium">
-                  Progress
-                </Text>
-                <Text color="white" fontSize="sm" fontWeight="bold">
-                  {project.progress}%
-                </Text>
-              </Flex>
-              <Progress 
-                colorScheme={getStatusColor(project.status)} 
-                value={project.progress} 
-                borderRadius="full"
-                size="md"
-                bg="gray.700"
-              />
-              <Flex justify="space-between" mt={2}>
-                <Text color="gray.500" fontSize="xs">
-                  {project.tasksCompleted}/{project.totalTasks} tasks
-                </Text>
-                <Text color="gray.500" fontSize="xs">
-                  {project.totalTasks - project.tasksCompleted} remaining
-                </Text>
-              </Flex>
+                Projects 🚀
+              </Heading>
+              <Text 
+                fontSize="lg" 
+                opacity={0.9}
+                animation="slideInLeft 0.8s ease-out 0.2s both"
+              >
+                Manage and track all your projects with style
+              </Text>
             </Box>
-
-            {/* Team Section */}
-            <Flex justify="space-between" align="center">
-              <HStack spacing={2}>
-                <Icon as={FaUsers} color="gray.500" boxSize={3} />
-                <Text color="gray.400" fontSize="sm">
-                  Team ({project.team.length})
-                </Text>
-              </HStack>
-              <AvatarGroup size="sm" max={3} spacing="-0.5rem">
-                {project.team.map((name, index) => (
-                  <Avatar 
-                    key={index} 
-                    name={name} 
-                    border="2px solid"
-                    borderColor="gray.800"
-                  />
-                ))}
-              </AvatarGroup>
-            </Flex>
-          </Box>
-        ))}
-      </SimpleGrid>
-
-      {/* Create Project Modal */}
-      <Modal isOpen={isOpen} onClose={handleModalClose} size="xl">
-        <ModalOverlay bg="blackAlpha.800" />
-        <ModalContent bg="gray.800" border="1px" borderColor="gray.700">
-          <ModalHeader color="white">
-            <HStack spacing={3}>
-              <Icon as={FaProjectDiagram} color="blue.400" />
-              <Text>Create New Project</Text>
-            </HStack>
-          </ModalHeader>
-          <ModalCloseButton color="gray.400" />
-          
-          <ModalBody pb={6}>
-            <VStack spacing={6}>
-              {/* Project Name */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Project Name
-                </FormLabel>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <Icon as={FaProjectDiagram} color="gray.500" />
-                  </InputLeftElement>
-                  <Input
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    placeholder="Enter project name"
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                    pl={10}
-                  />
-                </InputGroup>
-              </FormControl>
-
-              {/* Project Description */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Description
-                </FormLabel>
-                <Textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Describe your project..."
-                  bg="gray.700"
-                  border="1px"
-                  borderColor="gray.600"
-                  color="white"
-                  _hover={{ borderColor: "gray.500" }}
-                  _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                  rows={4}
-                  resize="vertical"
-                />
-              </FormControl>
-
-              {/* Owner and Status Row */}
-              <SimpleGrid columns={2} spacing={4} w="full">
-                <FormControl>
-                  <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                    Project Owner
-                  </FormLabel>
-                  <InputGroup>
-                    <InputLeftElement pointerEvents="none">
-                      <Icon as={FaUser} color="gray.500" />
-                    </InputLeftElement>
-                    <Select
-                      name="owner"
-                      value={formData.owner}
-                      onChange={handleInputChange}
-                      bg="gray.700"
-                      border="1px"
-                      borderColor="gray.600"
-                      color="white"
-                      _hover={{ borderColor: "gray.500" }}
-                      _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                      pl={10}
-                    >
-                      <option value="You" style={{ backgroundColor: '#2D3748' }}>You</option>
-                      <option value="Alice Johnson" style={{ backgroundColor: '#2D3748' }}>Alice Johnson</option>
-                      <option value="Bob Smith" style={{ backgroundColor: '#2D3748' }}>Bob Smith</option>
-                      <option value="Carol Davis" style={{ backgroundColor: '#2D3748' }}>Carol Davis</option>
-                    </Select>
-                  </InputGroup>
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                    Initial Status
-                  </FormLabel>
-                  <Select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                  >
-                    <option value="Pending" style={{ backgroundColor: '#2D3748' }}>Pending</option>
-                    <option value="In Progress" style={{ backgroundColor: '#2D3748' }}>In Progress</option>
-                    <option value="Completed" style={{ backgroundColor: '#2D3748' }}>Completed</option>
-                  </Select>
-                </FormControl>
-              </SimpleGrid>
-
-              {/* Deadline */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Deadline
-                </FormLabel>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <Icon as={FaCalendarAlt} color="gray.500" />
-                  </InputLeftElement>
-                  <Input
-                    name="deadline"
-                    type="date"
-                    value={formData.deadline}
-                    onChange={handleInputChange}
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                    pl={10}
-                  />
-                </InputGroup>
-              </FormControl>
-            </VStack>
-          </ModalBody>
-
-          <ModalFooter>
             <Button 
-              variant="ghost" 
-              mr={3} 
-              onClick={handleModalClose}
-              color="gray.400"
-              _hover={{ color: "white", bg: "gray.700" }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              colorScheme="blue" 
-              onClick={handleCreateProject}
-              leftIcon={<AddIcon />}
-              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
-              transition="all 0.2s"
+              leftIcon={<FaPlus />} 
+              colorScheme="whiteAlpha" 
+              variant="solid"
+              size="lg"
+              onClick={onCreateOpen}
+              bg="rgba(255,255,255,0.2)"
+              backdropFilter="blur(10px)"
+              border="1px solid rgba(255,255,255,0.3)"
+              _hover={{ 
+                bg: "rgba(255,255,255,0.3)",
+                transform: "translateY(-2px)",
+                shadow: "xl"
+              }}
+              transition="all 0.3s ease"
+              animation="slideInRight 0.8s ease-out 0.3s both"
             >
               Create Project
             </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          </Flex>
+        </Box>
 
-      {/* Edit Project Modal */}
-      <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
-        <ModalOverlay bg="blackAlpha.800" />
-        <ModalContent bg="gray.800" border="1px" borderColor="gray.700">
-          <ModalHeader color="white">
-            <HStack spacing={3}>
-              <Icon as={FaProjectDiagram} color="blue.400" />
-              <Text>Edit Project</Text>
-            </HStack>
-          </ModalHeader>
-          <ModalCloseButton color="gray.400" />
-          
-          <ModalBody pb={6}>
-            <VStack spacing={6}>
-              {/* Project Name */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Project Name
-                </FormLabel>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <Icon as={FaProjectDiagram} color="gray.500" />
-                  </InputLeftElement>
-                  <Input
-                    name="name"
-                    value={editFormData.name}
-                    onChange={handleEditInputChange}
-                    placeholder="Enter project name"
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                    pl={10}
-                  />
-                </InputGroup>
-              </FormControl>
-
-              {/* Project Description */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Description
-                </FormLabel>
-                <Textarea
-                  name="description"
-                  value={editFormData.description}
-                  onChange={handleEditInputChange}
-                  placeholder="Describe your project..."
-                  bg="gray.700"
-                  border="1px"
-                  borderColor="gray.600"
-                  color="white"
-                  _hover={{ borderColor: "gray.500" }}
-                  _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                  rows={4}
-                  resize="vertical"
-                />
-              </FormControl>
-
-              {/* Owner and Status Row */}
-              <SimpleGrid columns={2} spacing={4} w="full">
-                <FormControl>
-                  <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                    Project Owner
-                  </FormLabel>
-                  <InputGroup>
-                    <InputLeftElement pointerEvents="none">
-                      <Icon as={FaUser} color="gray.500" />
-                    </InputLeftElement>
-                    <Select
-                      name="owner"
-                      value={editFormData.owner}
-                      onChange={handleEditInputChange}
-                      bg="gray.700"
-                      border="1px"
-                      borderColor="gray.600"
-                      color="white"
-                      _hover={{ borderColor: "gray.500" }}
-                      _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                      pl={10}
+        {/* Stats Cards */}
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+          <Card 
+            bg={cardBg} 
+            borderColor={borderColor}
+            shadow="xl"
+            borderRadius="2xl"
+            border="none"
+            position="relative"
+            overflow="hidden"
+            transform="translateY(0) scale(1)"
+            transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+            _hover={{ 
+              transform: "translateY(-8px) scale(1.02)",
+              shadow: "2xl",
+              borderColor: "blue.300"
+            }}
+            _before={{
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "4px",
+              bgGradient: "linear(90deg, blue.400, purple.400)",
+            }}
+            animation="slideInUp 0.6s ease-out"
+          >
+            <CardBody>
+              <Stat>
+                <HStack justify="space-between" mb={2}>
+                  <Box>
+                    <StatLabel color={mutedTextColor} fontWeight="semibold" fontSize="sm">Total Projects</StatLabel>
+                    <StatNumber 
+                      color={useColorModeValue('blue.600', 'blue.300')} 
+                      fontSize="3xl" 
+                      fontWeight="bold"
+                      animation="countUp 1s ease-out 0.5s both"
                     >
-                      <option value="You" style={{ backgroundColor: '#2D3748' }}>You</option>
-                      <option value="Alice Johnson" style={{ backgroundColor: '#2D3748' }}>Alice Johnson</option>
-                      <option value="Bob Smith" style={{ backgroundColor: '#2D3748' }}>Bob Smith</option>
-                      <option value="Carol Davis" style={{ backgroundColor: '#2D3748' }}>Carol Davis</option>
-                    </Select>
-                  </InputGroup>
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                    Status
-                  </FormLabel>
-                  <Select
-                    name="status"
-                    value={editFormData.status}
-                    onChange={handleEditInputChange}
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
+                      {totalProjects}
+                    </StatNumber>
+                  </Box>
+                  <Box
+                    p={3}
+                    borderRadius="xl"
+                    bg={useColorModeValue('blue.50', 'blue.800')}
+                    color={useColorModeValue('blue.500', 'blue.200')}
+                    animation="pulse 2s ease-in-out infinite"
                   >
-                    <option value="Pending" style={{ backgroundColor: '#2D3748' }}>Pending</option>
-                    <option value="In Progress" style={{ backgroundColor: '#2D3748' }}>In Progress</option>
-                    <option value="Completed" style={{ backgroundColor: '#2D3748' }}>Completed</option>
-                  </Select>
-                </FormControl>
-              </SimpleGrid>
+                    <Icon as={FaProjectDiagram} boxSize={6} />
+                  </Box>
+                </HStack>
+                <StatHelpText color={mutedTextColor} fontWeight="medium">
+                  <Icon as={FaProjectDiagram} mr={1} />
+                  All projects
+                </StatHelpText>
+              </Stat>
+            </CardBody>
+          </Card>
 
-              {/* Deadline */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Deadline
-                </FormLabel>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <Icon as={FaCalendarAlt} color="gray.500" />
-                  </InputLeftElement>
-                  <Input
-                    name="deadline"
-                    type="date"
-                    value={editFormData.deadline}
-                    onChange={handleEditInputChange}
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                    pl={10}
-                  />
-                </InputGroup>
-              </FormControl>
-            </VStack>
-          </ModalBody>
-
-          <ModalFooter>
-            <Button 
-              variant="ghost" 
-              mr={3} 
-              onClick={onEditClose}
-              color="gray.400"
-              _hover={{ color: "white", bg: "gray.700" }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              colorScheme="blue" 
-              onClick={handleEditSubmit}
-              leftIcon={<EditIcon />}
-              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
-              transition="all 0.2s"
-            >
-              Save Changes
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Add Member Modal */}
-      <Modal isOpen={isMemberOpen} onClose={onMemberClose} size="md">
-        <ModalOverlay bg="blackAlpha.800" />
-        <ModalContent bg="gray.800" border="1px" borderColor="gray.700">
-          <ModalHeader color="white">
-            <HStack spacing={3}>
-              <Icon as={FaUserPlus} color="blue.400" />
-              <Text>Add Team Member</Text>
-            </HStack>
-          </ModalHeader>
-          <ModalCloseButton color="gray.400" />
-          
-          <ModalBody pb={6}>
-            <VStack spacing={6}>
-              {/* Member Name */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Member Name
-                </FormLabel>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <Icon as={FaUser} color="gray.500" />
-                  </InputLeftElement>
-                  <Input
-                    name="memberName"
-                    value={memberFormData.memberName}
-                    onChange={(e) => setMemberFormData({ ...memberFormData, memberName: e.target.value })}
-                    placeholder="Enter member name"
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                    pl={10}
-                  />
-                </InputGroup>
-              </FormControl>
-            </VStack>
-          </ModalBody>
-
-          <ModalFooter>
-            <Button 
-              variant="ghost" 
-              mr={3} 
-              onClick={onMemberClose}
-              color="gray.400"
-              _hover={{ color: "white", bg: "gray.700" }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              colorScheme="blue" 
-              onClick={handleMemberSubmit}
-              leftIcon={<FaUserPlus />}
-              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
-              transition="all 0.2s"
-            >
-              Add Member
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Edit Project Modal */}
-      <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
-        <ModalOverlay bg="blackAlpha.800" />
-        <ModalContent bg="gray.800" border="1px" borderColor="gray.700">
-          <ModalHeader color="white">
-            <HStack spacing={3}>
-              <Icon as={EditIcon} color="blue.400" />
-              <Text>Edit Project</Text>
-            </HStack>
-          </ModalHeader>
-          <ModalCloseButton color="gray.400" />
-          
-          <ModalBody pb={6}>
-            <VStack spacing={6}>
-              {/* Project Name */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Project Name
-                </FormLabel>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <Icon as={FaProjectDiagram} color="gray.500" />
-                  </InputLeftElement>
-                  <Input
-                    name="name"
-                    value={editFormData.name}
-                    onChange={handleEditInputChange}
-                    placeholder="Enter project name"
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                    pl={10}
-                  />
-                </InputGroup>
-              </FormControl>
-
-              {/* Project Description */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Description
-                </FormLabel>
-                <Textarea
-                  name="description"
-                  value={editFormData.description}
-                  onChange={handleEditInputChange}
-                  placeholder="Describe your project..."
-                  bg="gray.700"
-                  border="1px"
-                  borderColor="gray.600"
-                  color="white"
-                  _hover={{ borderColor: "gray.500" }}
-                  _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                  rows={4}
-                  resize="vertical"
-                />
-              </FormControl>
-
-              {/* Owner and Status Row */}
-              <SimpleGrid columns={2} spacing={4} w="full">
-                <FormControl>
-                  <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                    Project Owner
-                  </FormLabel>
-                  <InputGroup>
-                    <InputLeftElement pointerEvents="none">
-                      <Icon as={FaUser} color="gray.500" />
-                    </InputLeftElement>
-                    <Select
-                      name="owner"
-                      value={editFormData.owner}
-                      onChange={handleEditInputChange}
-                      bg="gray.700"
-                      border="1px"
-                      borderColor="gray.600"
-                      color="white"
-                      _hover={{ borderColor: "gray.500" }}
-                      _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                      pl={10}
+          <Card 
+            bg={cardBg} 
+            borderColor={borderColor}
+            shadow="xl"
+            borderRadius="2xl"
+            border="none"
+            position="relative"
+            overflow="hidden"
+            transform="translateY(0) scale(1)"
+            transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+            _hover={{ 
+              transform: "translateY(-8px) scale(1.02)",
+              shadow: "2xl",
+              borderColor: "green.300"
+            }}
+            _before={{
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "4px",
+              bgGradient: "linear(90deg, green.400, teal.400)",
+            }}
+            animation="slideInUp 0.6s ease-out 0.1s both"
+          >
+            <CardBody>
+              <Stat>
+                <HStack justify="space-between" mb={2}>
+                  <Box>
+                    <StatLabel color={mutedTextColor} fontWeight="semibold" fontSize="sm">Active Projects</StatLabel>
+                    <StatNumber 
+                      color={useColorModeValue('green.600', 'green.300')} 
+                      fontSize="3xl" 
+                      fontWeight="bold"
+                      animation="countUp 1s ease-out 0.6s both"
                     >
-                      <option value="You" style={{ backgroundColor: '#2D3748' }}>You</option>
-                      <option value="Alice Johnson" style={{ backgroundColor: '#2D3748' }}>Alice Johnson</option>
-                      <option value="Bob Smith" style={{ backgroundColor: '#2D3748' }}>Bob Smith</option>
-                      <option value="Carol Davis" style={{ backgroundColor: '#2D3748' }}>Carol Davis</option>
-                    </Select>
-                  </InputGroup>
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                    Status
-                  </FormLabel>
-                  <Select
-                    name="status"
-                    value={editFormData.status}
-                    onChange={handleEditInputChange}
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
+                      {activeProjects}
+                    </StatNumber>
+                  </Box>
+                  <Box
+                    p={3}
+                    borderRadius="xl"
+                    bg={useColorModeValue('green.50', 'green.800')}
+                    color={useColorModeValue('green.500', 'green.200')}
+                    animation="pulse 2s ease-in-out infinite 0.5s"
                   >
-                    <option value="Pending" style={{ backgroundColor: '#2D3748' }}>Pending</option>
-                    <option value="In Progress" style={{ backgroundColor: '#2D3748' }}>In Progress</option>
-                    <option value="Completed" style={{ backgroundColor: '#2D3748' }}>Completed</option>
-                  </Select>
-                </FormControl>
-              </SimpleGrid>
+                    <Icon as={FaChartLine} boxSize={6} />
+                  </Box>
+                </HStack>
+                <StatHelpText color={mutedTextColor} fontWeight="medium">
+                  <Icon as={FaChartLine} mr={1} />
+                  In progress
+                </StatHelpText>
+              </Stat>
+            </CardBody>
+          </Card>
 
-              {/* Deadline */}
-              <FormControl isRequired>
-                <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                  Deadline
-                </FormLabel>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <Icon as={FaCalendarAlt} color="gray.500" />
-                  </InputLeftElement>
-                  <Input
-                    name="deadline"
-                    type="date"
-                    value={editFormData.deadline}
-                    onChange={handleEditInputChange}
-                    bg="gray.700"
-                    border="1px"
-                    borderColor="gray.600"
-                    color="white"
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                    pl={10}
-                  />
-                </InputGroup>
-              </FormControl>
-            </VStack>
-          </ModalBody>
+          <Card 
+            bg={cardBg} 
+            borderColor={borderColor}
+            shadow="xl"
+            borderRadius="2xl"
+            border="none"
+            position="relative"
+            overflow="hidden"
+            transform="translateY(0) scale(1)"
+            transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+            _hover={{ 
+              transform: "translateY(-8px) scale(1.02)",
+              shadow: "2xl",
+              borderColor: "gray.400"
+            }}
+            _before={{
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "4px",
+              bgGradient: "linear(90deg, gray.400, gray.600)",
+            }}
+            animation="slideInUp 0.6s ease-out 0.2s both"
+          >
+            <CardBody>
+              <Stat>
+                <HStack justify="space-between" mb={2}>
+                  <Box>
+                    <StatLabel color={mutedTextColor} fontWeight="semibold" fontSize="sm">Completed</StatLabel>
+                    <StatNumber 
+                      color={useColorModeValue('gray.600', 'gray.300')} 
+                      fontSize="3xl" 
+                      fontWeight="bold"
+                      animation="countUp 1s ease-out 0.7s both"
+                    >
+                      {completedProjects}
+                    </StatNumber>
+                  </Box>
+                  <Box
+                    p={3}
+                    borderRadius="xl"
+                    bg={useColorModeValue('gray.50', 'gray.700')}
+                    color={useColorModeValue('gray.500', 'gray.300')}
+                    animation="pulse 2s ease-in-out infinite 1s"
+                  >
+                    <Icon as={FaUsers} boxSize={6} />
+                  </Box>
+                </HStack>
+                <StatHelpText color={mutedTextColor} fontWeight="medium">
+                  <Icon as={FaUsers} mr={1} />
+                  Finished
+                </StatHelpText>
+              </Stat>
+            </CardBody>
+          </Card>
 
-          <ModalFooter>
-            <Button 
-              variant="ghost" 
-              mr={3} 
-              onClick={onEditClose}
-              color="gray.400"
-              _hover={{ color: "white", bg: "gray.700" }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              colorScheme="blue" 
-              onClick={handleEditSubmit}
-              leftIcon={<EditIcon />}
-              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
-              transition="all 0.2s"
-            >
-              Update Project
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+          <Card 
+            bg={cardBg} 
+            borderColor={borderColor}
+            shadow="xl"
+            borderRadius="2xl"
+            border="none"
+            position="relative"
+            overflow="hidden"
+            transform="translateY(0) scale(1)"
+            transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+            _hover={{ 
+              transform: "translateY(-8px) scale(1.02)",
+              shadow: "2xl",
+              borderColor: "purple.300"
+            }}
+            _before={{
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "4px",
+              bgGradient: "linear(90deg, purple.400, pink.400)",
+            }}
+            animation="slideInUp 0.6s ease-out 0.3s both"
+          >
+            <CardBody>
+              <Stat>
+                <HStack justify="space-between" mb={2}>
+                  <Box>
+                    <StatLabel color={mutedTextColor} fontWeight="semibold" fontSize="sm">Average Progress</StatLabel>
+                    <StatNumber 
+                      color={useColorModeValue('purple.600', 'purple.300')} 
+                      fontSize="3xl" 
+                      fontWeight="bold"
+                      animation="countUp 1s ease-out 0.8s both"
+                    >
+                      {averageProgress}%
+                    </StatNumber>
+                  </Box>
+                  <Box
+                    p={3}
+                    borderRadius="xl"
+                    bg={useColorModeValue('purple.50', 'purple.800')}
+                    color={useColorModeValue('purple.500', 'purple.200')}
+                    animation="pulse 2s ease-in-out infinite 1.5s"
+                  >
+                    <Icon as={FaCalendarAlt} boxSize={6} />
+                  </Box>
+                </HStack>
+                <StatHelpText color={mutedTextColor} fontWeight="medium">
+                  <Icon as={FaCalendarAlt} mr={1} />
+                  Overall completion
+                </StatHelpText>
+              </Stat>
+            </CardBody>
+          </Card>
+        </SimpleGrid>
 
-      {/* Add Member Modal */}
-      <Modal isOpen={isMemberOpen} onClose={onMemberClose} size="md">
-        <ModalOverlay bg="blackAlpha.800" />
-        <ModalContent bg="gray.800" border="1px" borderColor="gray.700">
-          <ModalHeader color="white">
-            <HStack spacing={3}>
-              <Icon as={FaUserPlus} color="green.400" />
-              <Text>Add Team Member</Text>
-            </HStack>
-          </ModalHeader>
-          <ModalCloseButton color="gray.400" />
-          
-          <ModalBody pb={6}>
-            <FormControl isRequired>
-              <FormLabel color="gray.300" fontSize="sm" fontWeight="medium">
-                Member Name
-              </FormLabel>
-              <InputGroup>
-                <InputLeftElement pointerEvents="none">
-                  <Icon as={FaUser} color="gray.500" />
+        {/* Filters and Search */}
+        <Card 
+          bg={cardBg} 
+          borderColor={borderColor}
+          shadow="xl"
+          borderRadius="2xl"
+          border="none"
+          position="relative"
+          overflow="hidden"
+          transform="translateY(0)"
+          transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+          _hover={{ 
+            transform: "translateY(-2px)",
+            shadow: "2xl"
+          }}
+          _before={{
+            content: '""',
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: "3px",
+            bgGradient: "linear(90deg, blue.400, teal.400)",
+          }}
+          animation="fadeInScale 0.8s ease-out 0.4s both"
+        >
+          <CardBody>
+            <HStack spacing={4} wrap="wrap">
+              <InputGroup flex="2" minW="250px">
+                <InputLeftElement>
+                  <Icon as={FaSearch} color={mutedTextColor} />
                 </InputLeftElement>
                 <Input
-                  value={memberFormData.memberName}
-                  onChange={(e) => setMemberFormData(prev => ({ ...prev, memberName: e.target.value }))}
-                  placeholder="Enter member name"
-                  bg="gray.700"
+                  placeholder="Search projects..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  bg={useColorModeValue('gray.50', 'gray.600')}
                   border="1px"
-                  borderColor="gray.600"
-                  color="white"
-                  _hover={{ borderColor: "gray.500" }}
-                  _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                  pl={10}
+                  borderColor={useColorModeValue('gray.200', 'gray.500')}
+                  _focus={{
+                    borderColor: useColorModeValue('blue.400', 'blue.300'),
+                    shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                  }}
+                  transition="all 0.2s ease"
                 />
               </InputGroup>
-            </FormControl>
-          </ModalBody>
 
-          <ModalFooter>
-            <Button 
-              variant="ghost" 
-              mr={3} 
-              onClick={onMemberClose}
-              color="gray.400"
-              _hover={{ color: "white", bg: "gray.700" }}
+              <Select 
+                flex="1" 
+                minW="120px"
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value)}
+                bg={useColorModeValue('white', 'gray.600')}
+                border="1px"
+                borderColor={useColorModeValue('gray.200', 'gray.500')}
+                _focus={{
+                  borderColor: useColorModeValue('blue.400', 'blue.300'),
+                  shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                }}
+              >
+                <option value="All">All Status</option>
+                <option value="Active">Active</option>
+                <option value="Planning">Planning</option>
+                <option value="Completed">Completed</option>
+                <option value="On Hold">On Hold</option>
+              </Select>
+
+              <Select 
+                flex="1" 
+                minW="150px"
+                value={roleFilter} 
+                onChange={(e) => setRoleFilter(e.target.value)}
+                bg={useColorModeValue('white', 'gray.600')}
+                border="1px"
+                borderColor={useColorModeValue('gray.200', 'gray.500')}
+                _focus={{
+                  borderColor: useColorModeValue('blue.400', 'blue.300'),
+                  shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                }}
+              >
+                <option value="All">All Roles</option>
+                <option value="Project Manager">Project Manager</option>
+                <option value="Lead Designer">Lead Designer</option>
+                <option value="Senior Developer">Senior Developer</option>
+                <option value="Technical Writer">Technical Writer</option>
+              </Select>
+
+              <Select 
+                flex="1" 
+                minW="130px"
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value)}
+                bg={useColorModeValue('white', 'gray.600')}
+                border="1px"
+                borderColor={useColorModeValue('gray.200', 'gray.500')}
+                _focus={{
+                  borderColor: useColorModeValue('blue.400', 'blue.300'),
+                  shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                }}
+              >
+                <option value="name">Sort by Name</option>
+                <option value="progress">Sort by Progress</option>
+                <option value="deadline">Sort by Deadline</option>
+                <option value="priority">Sort by Priority</option>
+              </Select>
+            </HStack>
+          </CardBody>
+        </Card>
+
+        {/* Projects Grid */}
+        <SimpleGrid columns={{ base: 1, lg: 2, xl: 3 }} spacing={6}>
+          {filteredAndSortedProjects.map((project, index) => (
+            <Card 
+              key={project.id} 
+              bg={cardBg} 
+              borderColor={borderColor}
+              shadow="xl"
+              borderRadius="2xl"
+              border="none"
+              position="relative"
+              overflow="hidden"
+              transform="translateY(0) scale(1)"
+              transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+              _hover={{ 
+                transform: "translateY(-5px) scale(1.02)",
+                shadow: "2xl",
+                borderColor: useColorModeValue('blue.200', 'blue.500')
+              }}
+              _before={{
+                content: '""',
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: "3px",
+                bgGradient: `linear(90deg, ${getStatusColor(project.status)}.400, ${getPriorityColor(project.priority)}.400)`,
+              }}
+              animation={`fadeInScale 0.6s ease-out ${0.5 + index * 0.1}s both`}
             >
-              Cancel
-            </Button>
-            <Button 
-              colorScheme="green" 
-              onClick={handleMemberSubmit}
-              leftIcon={<Icon as={FaUserPlus} />}
-              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
-              transition="all 0.2s"
+              <CardHeader 
+                pb={3}
+                bg={useColorModeValue(`${getStatusColor(project.status)}.50`, 'gray.700')}
+                borderTopRadius="2xl"
+              >
+                <HStack justify="space-between" align="start">
+                  <VStack align="start" spacing={2} flex="1">
+                    <Heading size="md" noOfLines={1} color={textColor} fontWeight="bold">
+                      {project.name}
+                    </Heading>
+                    <HStack spacing={2} flexWrap="wrap">
+                      <Badge 
+                        colorScheme={getStatusColor(project.status)} 
+                        size="sm"
+                        borderRadius="full"
+                        px={3}
+                        py={1}
+                        fontWeight="bold"
+                      >
+                        {project.status}
+                      </Badge>
+                      <Badge 
+                        colorScheme={getPriorityColor(project.priority)} 
+                        size="sm"
+                        borderRadius="full"
+                        px={3}
+                        py={1}
+                        fontWeight="bold"
+                      >
+                        {project.priority}
+                      </Badge>
+                      <Badge 
+                        colorScheme={getRoleColor(project.role)} 
+                        size="sm"
+                        borderRadius="full"
+                        px={3}
+                        py={1}
+                        fontWeight="bold"
+                      >
+                        {project.role}
+                      </Badge>
+                    </HStack>
+                  </VStack>
+                  
+                  <Menu>
+                    <MenuButton
+                      as={IconButton}
+                      icon={<FaEllipsisV />}
+                      size="sm"
+                      variant="ghost"
+                      color={textColor}
+                      _hover={{
+                        bg: useColorModeValue('gray.100', 'gray.600'),
+                        transform: "scale(1.1)"
+                      }}
+                      transition="all 0.2s ease"
+                    />
+                    <MenuList 
+                      bg={cardBg}
+                      borderColor={borderColor}
+                      shadow="xl"
+                    >
+                      <MenuItem 
+                        icon={<FaEye />}
+                        as={RouterLink}
+                        to={`/projects/${project.id}`}
+                        _hover={{
+                          bg: useColorModeValue('blue.50', 'gray.600')
+                        }}
+                      >
+                        View Details
+                      </MenuItem>
+                      {project.owner === 'You' && (
+                        <>
+                          <MenuItem 
+                            icon={<FaEdit />}
+                            _hover={{
+                              bg: useColorModeValue('green.50', 'gray.600')
+                            }}
+                          >
+                            Edit Project
+                          </MenuItem>
+                          <MenuItem 
+                            icon={<FaTrash />} 
+                            color="red.500"
+                            _hover={{
+                              bg: useColorModeValue('red.50', 'red.800')
+                            }}
+                          >
+                            Delete Project
+                          </MenuItem>
+                        </>
+                      )}
+                    </MenuList>
+                  </Menu>
+                </HStack>
+              </CardHeader>
+
+              <CardBody pt={0} bg={cardContentBg}>
+                <VStack align="stretch" spacing={4}>
+                  {/* Description */}
+                  <Text fontSize="sm" color={mutedTextColor} noOfLines={3} fontWeight="medium">
+                    {project.description}
+                  </Text>
+
+                  {/* Progress */}
+                  <Box>
+                    <HStack justify="space-between" mb={2}>
+                      <Text fontSize="sm" fontWeight="bold" color={textColor}>Progress</Text>
+                      <Text 
+                        fontSize="sm" 
+                        color={useColorModeValue(`${getProgressColor(project.progress)}.600`, `${getProgressColor(project.progress)}.300`)}
+                        fontWeight="bold"
+                      >
+                        {project.progress}%
+                      </Text>
+                    </HStack>
+                    <Progress 
+                      value={project.progress} 
+                      colorScheme={getProgressColor(project.progress)} 
+                      size="lg" 
+                      borderRadius="full"
+                      bg={useColorModeValue('gray.100', 'gray.600')}
+                      sx={{
+                        '& > div': {
+                          background: `linear-gradient(90deg, ${project.progress > 70 ? '#22C55E' : project.progress > 40 ? '#3182CE' : '#F59E0B'}, ${project.progress > 70 ? '#16A34A' : project.progress > 40 ? '#2C5282' : '#D97706'})`
+                        }
+                      }}
+                    />
+                  </Box>
+
+                  {/* Stats */}
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                    <VStack align="start" spacing={1}>
+                      <HStack>
+                        <Icon as={FaUsers} boxSize={3} color={useColorModeValue('blue.500', 'blue.300')} />
+                        <Text fontSize="xs" color={mutedTextColor} fontWeight="semibold">Team</Text>
+                      </HStack>
+                      <Text fontSize="sm" fontWeight="bold" color={textColor}>{project.memberCount} members</Text>
+                    </VStack>
+
+                    <VStack align="start" spacing={1}>
+                      <HStack>
+                        <Icon as={FaClock} boxSize={3} color={useColorModeValue('orange.500', 'orange.300')} />
+                        <Text fontSize="xs" color={mutedTextColor} fontWeight="semibold">Timeline</Text>
+                      </HStack>
+                      <Text fontSize="sm" fontWeight="bold" color={textColor}>
+                        {calculateDaysLeft(project.deadline)} days left
+                      </Text>
+                    </VStack>
+                  </SimpleGrid>
+
+                  {/* Tasks Progress */}
+                  <HStack justify="space-between" fontSize="sm">
+                    <Text color={mutedTextColor} fontWeight="semibold">
+                      Tasks: {project.completedTasks}/{project.totalTasks}
+                    </Text>
+                    <Text color={mutedTextColor} fontWeight="semibold">
+                      Due: {new Date(project.deadline).toLocaleDateString()}
+                    </Text>
+                  </HStack>
+
+                  {/* Team Avatars */}
+                  <HStack justify="space-between">
+                    <AvatarGroup size="sm" max={4}>
+                      {project.members.map((member, index) => (
+                        <Tooltip key={index} label={`${member.name} - ${member.role}`}>
+                          <Avatar 
+                            name={member.name}
+                            border="2px solid"
+                            borderColor={useColorModeValue('white', 'gray.700')}
+                          />
+                        </Tooltip>
+                      ))}
+                    </AvatarGroup>
+                    
+                    <Button
+                      as={RouterLink}
+                      to={`/projects/${project.id}`}
+                      size="sm"
+                      variant="solid"
+                      colorScheme={getStatusColor(project.status)}
+                      rightIcon={<FaEye />}
+                      borderRadius="full"
+                      fontWeight="bold"
+                      _hover={{
+                        transform: "scale(1.05)"
+                      }}
+                      transition="all 0.2s ease"
+                    >
+                      View
+                    </Button>
+                  </HStack>
+
+                  {/* Tags */}
+                  {project.tags && project.tags.length > 0 && (
+                    <HStack spacing={1} flexWrap="wrap">
+                      {project.tags.slice(0, 3).map(tag => (
+                        <Badge 
+                          key={tag} 
+                          variant="outline" 
+                          size="sm"
+                          borderRadius="full"
+                          px={2}
+                          py={1}
+                          color={useColorModeValue('blue.600', 'blue.300')}
+                          borderColor={useColorModeValue('blue.200', 'blue.500')}
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                      {project.tags.length > 3 && (
+                        <Badge 
+                          variant="outline" 
+                          size="sm"
+                          borderRadius="full"
+                          px={2}
+                          py={1}
+                          color={mutedTextColor}
+                          borderColor={borderColor}
+                        >
+                          +{project.tags.length - 3}
+                        </Badge>
+                      )}
+                    </HStack>
+                  )}
+                </VStack>
+              </CardBody>
+            </Card>
+          ))}
+        </SimpleGrid>
+
+        {filteredAndSortedProjects.length === 0 && (
+          <Card 
+            bg={cardBg} 
+            borderColor={borderColor}
+            shadow="xl"
+            borderRadius="2xl"
+            border="none"
+            position="relative"
+            overflow="hidden"
+            _before={{
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: "3px",
+              bgGradient: "linear(90deg, gray.400, gray.600)",
+            }}
+          >
+            <CardBody textAlign="center" py={12}>
+              <Icon 
+                as={FaProjectDiagram} 
+                boxSize={16} 
+                color={useColorModeValue('gray.400', 'gray.500')} 
+                mb={6}
+                opacity={0.7}
+              />
+              <Heading size="lg" color={textColor} mb={3}>No projects found</Heading>
+              <Text color={mutedTextColor} mb={6} fontSize="lg">
+                {searchTerm || statusFilter !== 'All' || roleFilter !== 'All'
+                  ? 'Try adjusting your search or filters'
+                  : 'Get started by creating your first project'
+                }
+              </Text>
+              {(!searchTerm && statusFilter === 'All' && roleFilter === 'All') && (
+                <Button 
+                  leftIcon={<FaPlus />} 
+                  colorScheme="blue" 
+                  size="lg"
+                  onClick={onCreateOpen}
+                  borderRadius="full"
+                  px={8}
+                  _hover={{
+                    transform: "translateY(-2px)",
+                    shadow: "lg"
+                  }}
+                  transition="all 0.3s ease"
+                >
+                  Create Your First Project
+                </Button>
+              )}
+            </CardBody>
+          </Card>
+        )}
+        
+        {/* Create Project Modal */}
+        <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="xl">
+          <ModalOverlay backdropFilter="blur(10px)" />
+          <ModalContent 
+            bg={cardBg}
+            borderRadius="2xl"
+            border="1px"
+            borderColor={borderColor}
+            shadow="2xl"
+          >
+            <ModalHeader 
+              bg={useColorModeValue('blue.50', 'gray.700')}
+              borderTopRadius="2xl"
+              borderBottom="1px"
+              borderColor={borderColor}
             >
-              Add Member
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+              <HStack>
+                <Box
+                  p={2}
+                  borderRadius="lg"
+                  bg={useColorModeValue('blue.100', 'blue.800')}
+                  color={useColorModeValue('blue.600', 'blue.200')}
+                >
+                  <Icon as={FaPlus} />
+                </Box>
+                <Text color={textColor} fontWeight="bold">Create New Project</Text>
+              </HStack>
+            </ModalHeader>
+            <ModalCloseButton 
+              color={textColor}
+              _hover={{
+                bg: useColorModeValue('gray.100', 'gray.600')
+              }}
+            />
+            <ModalBody p={6}>
+              <VStack spacing={5}>
+                <FormControl isRequired>
+                  <FormLabel color={textColor} fontWeight="semibold">Project Name</FormLabel>
+                  <Input
+                    value={newProject.name}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter project name..."
+                    bg={useColorModeValue('gray.50', 'gray.600')}
+                    border="1px"
+                    borderColor={useColorModeValue('gray.200', 'gray.500')}
+                    _focus={{
+                      borderColor: useColorModeValue('blue.400', 'blue.300'),
+                      shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                    }}
+                  />
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel color={textColor} fontWeight="semibold">Description</FormLabel>
+                  <Textarea
+                    value={newProject.description}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Describe your project..."
+                    rows={4}
+                    bg={useColorModeValue('gray.50', 'gray.600')}
+                    border="1px"
+                    borderColor={useColorModeValue('gray.200', 'gray.500')}
+                    _focus={{
+                      borderColor: useColorModeValue('blue.400', 'blue.300'),
+                      shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                    }}
+                  />
+                </FormControl>
+
+                <HStack spacing={4} w="full">
+                  <FormControl>
+                    <FormLabel color={textColor} fontWeight="semibold">Start Date</FormLabel>
+                    <Input
+                      type="date"
+                      value={newProject.startDate}
+                      onChange={(e) => setNewProject(prev => ({ ...prev, startDate: e.target.value }))}
+                      bg={useColorModeValue('gray.50', 'gray.600')}
+                      border="1px"
+                      borderColor={useColorModeValue('gray.200', 'gray.500')}
+                      _focus={{
+                        borderColor: useColorModeValue('blue.400', 'blue.300'),
+                        shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                      }}
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel color={textColor} fontWeight="semibold">Deadline</FormLabel>
+                    <Input
+                      type="date"
+                      value={newProject.deadline}
+                      onChange={(e) => setNewProject(prev => ({ ...prev, deadline: e.target.value }))}
+                      bg={useColorModeValue('gray.50', 'gray.600')}
+                      border="1px"
+                      borderColor={useColorModeValue('gray.200', 'gray.500')}
+                      _focus={{
+                        borderColor: useColorModeValue('blue.400', 'blue.300'),
+                        shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                      }}
+                    />
+                  </FormControl>
+                </HStack>
+
+                <FormControl>
+                  <FormLabel color={textColor} fontWeight="semibold">Priority</FormLabel>
+                  <Select
+                    value={newProject.priority}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, priority: e.target.value }))}
+                    bg={useColorModeValue('gray.50', 'gray.600')}
+                    border="1px"
+                    borderColor={useColorModeValue('gray.200', 'gray.500')}
+                    _focus={{
+                      borderColor: useColorModeValue('blue.400', 'blue.300'),
+                      shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                    }}
+                  >
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </Select>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel color={textColor} fontWeight="semibold">Tags (comma-separated)</FormLabel>
+                  <Input
+                    value={newProject.tags}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, tags: e.target.value }))}
+                    placeholder="Frontend, Backend, API, ..."
+                    bg={useColorModeValue('gray.50', 'gray.600')}
+                    border="1px"
+                    borderColor={useColorModeValue('gray.200', 'gray.500')}
+                    _focus={{
+                      borderColor: useColorModeValue('blue.400', 'blue.300'),
+                      shadow: "0 0 0 1px rgba(66, 153, 225, 0.6)"
+                    }}
+                  />
+                </FormControl>
+              </VStack>
+            </ModalBody>
+            <ModalFooter 
+              borderTop="1px"
+              borderColor={borderColor}
+              bg={useColorModeValue('gray.50', 'gray.700')}
+              borderBottomRadius="2xl"
+            >
+              <Button 
+                variant="ghost" 
+                mr={3} 
+                onClick={onCreateClose}
+                color={mutedTextColor}
+                _hover={{
+                  bg: useColorModeValue('gray.100', 'gray.600')
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                colorScheme="blue" 
+                onClick={handleCreateProject}
+                borderRadius="lg"
+                px={6}
+                _hover={{
+                  transform: "translateY(-1px)",
+                  shadow: "lg"
+                }}
+                transition="all 0.2s ease"
+              >
+                Create Project
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+      </VStack>
+    
+      {/* CSS Keyframes for animations */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-20px); }
+        }
+        
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        
+        @keyframes slideInLeft {
+          from { 
+            opacity: 0; 
+            transform: translateX(-50px); 
+          }
+          to { 
+            opacity: 1; 
+            transform: translateX(0); 
+          }
+        }
+        
+        @keyframes slideInRight {
+          from { 
+            opacity: 0; 
+            transform: translateX(50px); 
+          }
+          to { 
+            opacity: 1; 
+            transform: translateX(0); 
+          }
+        }
+        
+        @keyframes slideInUp {
+          from { 
+            opacity: 0; 
+            transform: translateY(30px); 
+          }
+          to { 
+            opacity: 1; 
+            transform: translateY(0); 
+          }
+        }
+        
+        @keyframes countUp {
+          from { 
+            opacity: 0; 
+            transform: scale(0.5); 
+          }
+          to { 
+            opacity: 1; 
+            transform: scale(1); 
+          }
+        }
+        
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+        
+        @keyframes fadeInScale {
+          from { 
+            opacity: 0; 
+            transform: scale(0.9); 
+          }
+          to { 
+            opacity: 1; 
+            transform: scale(1); 
+          }
+        }
+      `}</style>
     </Box>
   );
 };
 
-export default ProjectsPage;
+export default Projects;

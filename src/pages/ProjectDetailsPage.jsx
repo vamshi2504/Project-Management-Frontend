@@ -39,512 +39,199 @@ import {
   Select,
   useDisclosure,
   useToast,
-  InputGroup,
-  InputLeftElement,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  IconButton,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  TableContainer,
+  Alert,
+  AlertIcon,
+  Tooltip,
+  Spinner,
+  Center,
 } from "@chakra-ui/react";
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaUsers, FaClock, FaCalendarAlt, FaTasks, FaEye, FaGripVertical, FaUser, FaEdit, FaUserPlus, FaProjectDiagram } from "react-icons/fa";
+import { 
+  FaArrowLeft, 
+  FaUsers, 
+  FaClock, 
+  FaCalendarAlt, 
+  FaTasks, 
+  FaEye, 
+  FaUser, 
+  FaEdit, 
+  FaUserPlus, 
+  FaProjectDiagram,
+  FaChartLine,
+  FaChartArea,
+  FaCalendarCheck,
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaEllipsisV,
+  FaPlus,
+  FaFilter,
+  FaBurn,
+  FaChartBar,
+  FaPlay,
+  FaPause,
+  FaStop
+} from "react-icons/fa";
 
-// Mock projects data (should match the one from Projects.jsx)
-const mockProjects = [
-  {
+const ProjectDetailsPage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const toast = useToast();
+  
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const cardBg = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const textColor = useColorModeValue('gray.800', 'white');
+
+  // Mock project data
+  const [project] = useState({
     id: 1,
-    name: 'Task Manager',
-    description: 'A comprehensive task management system with real-time collaboration',
-    owner: 'Alice Johnson',
-    progress: 60,
-    deadline: '2025-07-30',
-    status: 'In Progress',
-    team: ['Alice Johnson', 'Bob Smith', 'Carol Davis'],
-    tasksCompleted: 12,
-    totalTasks: 20,
-    startDate: '2025-06-01',
-  },
-  {
-    id: 2,
-    name: 'E-Commerce Platform',
-    description: 'Modern e-commerce solution with advanced analytics and payment integration',
-    owner: 'Bob Smith',
-    progress: 90,
-    deadline: '2025-07-20',
-    status: 'Completed',
-    team: ['David Wilson', 'Emma Brown'],
-    tasksCompleted: 18,
-    totalTasks: 20,
-    startDate: '2025-05-15',
-  },
-  {
-    id: 3,
-    name: 'Project Tracker UI',
-    description: 'Intuitive project tracking interface with dashboard and reporting features',
-    owner: 'You',
-    progress: 35,
-    deadline: '2025-08-15',
-    status: 'Pending',
-    team: ['Frank Miller', 'Grace Lee', 'Henry Taylor'],
-    tasksCompleted: 7,
-    totalTasks: 20,
-    startDate: '2025-06-15',
-  },
-];
+    name: 'E-commerce Platform',
+    description: 'Building a modern e-commerce platform with advanced features including payment integration, inventory management, and analytics.',
+    status: 'Active',
+    progress: 85,
+    startDate: '2024-01-15',
+    deadline: '2024-08-15',
+    owner: 'John Doe',
+    priority: 'High',
+    budget: '$250,000',
+    spent: '$187,500',
+    team: [
+      { name: 'John Doe', role: 'Project Manager', avatar: '', status: 'active' },
+      { name: 'Jane Smith', role: 'Backend Developer', avatar: '', status: 'active' },
+      { name: 'Mike Johnson', role: 'UI/UX Designer', avatar: '', status: 'active' },
+      { name: 'Sarah Wilson', role: 'QA Engineer', avatar: '', status: 'active' },
+      { name: 'Tom Brown', role: 'Frontend Developer', avatar: '', status: 'active' },
+      { name: 'Lisa Chen', role: 'DevOps Engineer', avatar: '', status: 'inactive' },
+    ],
+    tags: ['Frontend', 'Backend', 'Database', 'Payment', 'Analytics'],
+  });
 
-// Mock tasks data organized by project
-const mockProjectTasks = {
-  1: [ // Task Manager Project
+  // Mock tasks/features data for charts
+  const [features] = useState([
     {
       id: 1,
-      title: 'Create Login Page',
-      description: 'Design and develop login screen UI with modern authentication flow',
-      status: 'To Do',
-      assignedTo: 'Alice Johnson',
-      dueDate: '2025-07-10',
-      priority: 'High',
-      tags: ['Frontend', 'UI/UX'],
+      name: 'User Authentication',
+      status: 'Done',
+      startDate: '2024-01-15',
+      endDate: '2024-02-15',
+      progress: 100,
+      assignedTo: 'Jane Smith',
+      tasksCount: 8,
+      completedTasks: 8,
     },
     {
       id: 2,
-      title: 'Implement Task API',
-      description: 'Create RESTful routes for task endpoints with proper validation',
-      status: 'In Progress',
-      assignedTo: 'Bob Smith',
-      dueDate: '2025-07-08',
-      priority: 'Medium',
-      tags: ['Backend', 'API'],
+      name: 'Product Catalog',
+      status: 'Done',
+      startDate: '2024-02-01',
+      endDate: '2024-03-15',
+      progress: 100,
+      assignedTo: 'Mike Johnson',
+      tasksCount: 12,
+      completedTasks: 12,
     },
     {
       id: 3,
-      title: 'Fix task list bug',
-      description: 'Resolve issue with task filter not updating correctly',
-      status: 'Done',
-      assignedTo: 'Carol Davis',
-      dueDate: '2025-07-05',
-      priority: 'Low',
-      tags: ['Bug Fix', 'Frontend'],
-    },
-    {
-      id: 8,
-      title: 'Database Schema Design',
-      description: 'Design and implement the database schema for user management',
-      status: 'To Do',
-      assignedTo: 'Alice Johnson',
-      dueDate: '2025-07-12',
-      priority: 'High',
-      tags: ['Database', 'Backend'],
-    },
-    {
-      id: 9,
-      title: 'User Authentication',
-      description: 'Implement secure user authentication with JWT tokens',
+      name: 'Shopping Cart',
       status: 'In Progress',
-      assignedTo: 'Bob Smith',
-      dueDate: '2025-07-15',
-      priority: 'High',
-      tags: ['Security', 'Backend'],
-    }
-  ],
-  2: [ // E-Commerce Platform
+      startDate: '2024-03-01',
+      endDate: '2024-04-30',
+      progress: 80,
+      assignedTo: 'Tom Brown',
+      tasksCount: 10,
+      completedTasks: 8,
+    },
     {
       id: 4,
-      title: 'Product Catalog UI',
-      description: 'Create responsive product listing and detail pages',
-      status: 'Done',
-      assignedTo: 'David Wilson',
-      dueDate: '2025-07-01',
-      priority: 'High',
-      tags: ['Frontend', 'UI/UX'],
+      name: 'Payment Integration',
+      status: 'In Progress',
+      startDate: '2024-04-01',
+      endDate: '2024-05-30',
+      progress: 60,
+      assignedTo: 'Sarah Wilson',
+      tasksCount: 15,
+      completedTasks: 9,
     },
     {
       id: 5,
-      title: 'Payment Integration',
-      description: 'Integrate Stripe payment gateway for secure transactions',
-      status: 'Done',
-      assignedTo: 'Emma Brown',
-      dueDate: '2025-07-03',
-      priority: 'High',
-      tags: ['Backend', 'Payment'],
+      name: 'Analytics Dashboard',
+      status: 'To Do',
+      startDate: '2024-05-15',
+      endDate: '2024-07-15',
+      progress: 0,
+      assignedTo: 'Lisa Chen',
+      tasksCount: 20,
+      completedTasks: 0,
     },
-    {
-      id: 10,
-      title: 'Order Management',
-      description: 'Build order tracking and management system',
-      status: 'In Progress',
-      assignedTo: 'David Wilson',
-      dueDate: '2025-07-18',
-      priority: 'Medium',
-      tags: ['Backend', 'Orders'],
-    }
-  ],
-  3: [ // Project Tracker UI
     {
       id: 6,
-      title: 'Dashboard Design',
-      description: 'Create modern dashboard with analytics and charts',
-      status: 'In Progress',
-      assignedTo: 'Frank Miller',
-      dueDate: '2025-08-05',
-      priority: 'High',
-      tags: ['Frontend', 'Analytics'],
-    },
-    {
-      id: 7,
-      title: 'Reporting System',
-      description: 'Build comprehensive reporting and export functionality',
+      name: 'Mobile App',
       status: 'To Do',
-      assignedTo: 'Grace Lee',
-      dueDate: '2025-08-10',
-      priority: 'Medium',
-      tags: ['Backend', 'Reports'],
+      startDate: '2024-06-01',
+      endDate: '2024-08-15',
+      progress: 0,
+      assignedTo: 'Jane Smith',
+      tasksCount: 25,
+      completedTasks: 0,
     },
-    {
-      id: 11,
-      title: 'Mobile Responsiveness',
-      description: 'Ensure the interface works perfectly on mobile devices',
-      status: 'To Do',
-      assignedTo: 'Henry Taylor',
-      dueDate: '2025-08-12',
-      priority: 'Medium',
-      tags: ['Frontend', 'Mobile'],
-    }
-  ]
-};
+  ]);
 
-const ProjectDetailsPage = () => {
-  const { projectId } = useParams();
-  const navigate = useNavigate();
-  const cardBg = useColorModeValue('white', 'gray.800');
-  const textColor = useColorModeValue('gray.700', 'gray.100');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const toast = useToast();
-
-  // State for tasks (to handle drag and drop)
-  const [tasks, setTasks] = React.useState(mockProjectTasks[parseInt(projectId)] || []);
-  const [draggedTask, setDraggedTask] = React.useState(null);
-
-  // Modal states
-  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
-  const { isOpen: isAddMemberOpen, onOpen: onAddMemberOpen, onClose: onAddMemberClose } = useDisclosure();
-
-  // Form states
-  const [editFormData, setEditFormData] = useState({
-    name: '',
-    description: '',
-    deadline: '',
-    status: '',
-  });
-  const [newMemberEmail, setNewMemberEmail] = useState('');
-
-  // Current user (for demo purposes, this would come from authentication)
-  const currentUser = 'You'; // This represents the logged-in user
-
-  // Find the project by ID
-  const project = mockProjects.find(p => p.id === parseInt(projectId));
-  const projectTasks = tasks;
-
-  // If project not found, show error message
-  if (!project) {
-    return (
-      <Box px={8} py={6} bg={useColorModeValue('gray.50', 'gray.900')} minH="100vh">
-        <VStack spacing={4} textAlign="center" mt={20}>
-          <Heading size="lg" color={textColor}>Project Not Found</Heading>
-          <Text color="gray.500">The project you're looking for doesn't exist.</Text>
-          <Button colorScheme="blue" onClick={() => navigate('/projects')}>
-            Back to Projects
-          </Button>
-        </VStack>
-      </Box>
-    );
-  }
+  // Mock burndown data (points completed over time)
+  const [burndownData] = useState([
+    { date: '2024-01-15', planned: 100, actual: 100 },
+    { date: '2024-02-01', planned: 90, actual: 95 },
+    { date: '2024-02-15', planned: 80, actual: 88 },
+    { date: '2024-03-01', planned: 70, actual: 75 },
+    { date: '2024-03-15', planned: 60, actual: 65 },
+    { date: '2024-04-01', planned: 50, actual: 52 },
+    { date: '2024-04-15', planned: 40, actual: 40 },
+    { date: '2024-05-01', planned: 30, actual: 28 },
+    { date: '2024-05-15', planned: 20, actual: 22 },
+    { date: '2024-06-01', planned: 15, actual: 18 },
+    { date: '2024-06-15', planned: 10, actual: 15 },
+    { date: '2024-07-01', planned: 5, actual: 10 },
+    { date: '2024-07-15', planned: 2, actual: 5 },
+    { date: '2024-08-01', planned: 1, actual: 2 },
+    { date: '2024-08-15', planned: 0, actual: 0 },
+  ]);
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Completed':
-      case 'Done':
-        return 'green';
-      case 'In Progress':
-        return 'blue';
-      case 'Pending':
-      case 'To Do':
-        return 'orange';
-      default:
-        return 'gray';
+      case 'Active': return 'green';
+      case 'Planning': return 'blue';
+      case 'Completed': return 'gray';
+      case 'On Hold': return 'yellow';
+      default: return 'gray';
     }
   };
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'High':
-        return 'red';
-      case 'Medium':
-        return 'yellow';
-      case 'Low':
-        return 'green';
-      default:
-        return 'gray';
+      case 'High': return 'red';
+      case 'Medium': return 'yellow';
+      case 'Low': return 'green';
+      default: return 'gray';
     }
   };
-
-  const getTagColor = (tag) => {
-    const colors = {
-      'Frontend': 'blue',
-      'Backend': 'purple',
-      'UI/UX': 'pink',
-      'API': 'orange',
-      'Bug Fix': 'red',
-      'Database': 'green',
-      'Analytics': 'teal',
-      'Security': 'red',
-      'Payment': 'yellow',
-      'Orders': 'cyan',
-      'Reports': 'gray',
-      'Mobile': 'blue',
-    };
-    return colors[tag] || 'gray';
-  };
-
-  const handleTaskClick = (taskId) => {
-    navigate(`/tasks/${taskId}`);
-  };
-
-  // Drag and drop handlers
-  const handleDragStart = (e, task) => {
-    setDraggedTask(task);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = (e, newStatus) => {
-    e.preventDefault();
-    if (draggedTask && draggedTask.status !== newStatus) {
-      setTasks(prevTasks =>
-        prevTasks.map(task =>
-          task.id === draggedTask.id
-            ? { ...task, status: newStatus }
-            : task
-        )
-      );
-    }
-    setDraggedTask(null);
-  };
-
-  // Handler functions for edit project
-  const handleEditProject = () => {
-    setEditFormData({
-      name: project.name,
-      description: project.description,
-      deadline: project.deadline,
-      status: project.status,
-    });
-    onEditOpen();
-  };
-
-  const handleSaveProject = () => {
-    // In a real app, this would make an API call
-    toast({
-      title: 'Success',
-      description: 'Project updated successfully!',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
-    onEditClose();
-  };
-
-  const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Handler functions for add member
-  const handleAddMember = () => {
-    if (!newMemberEmail) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a valid email address.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    // In a real app, this would make an API call
-    toast({
-      title: 'Success',
-      description: `Invitation sent to ${newMemberEmail}!`,
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
-    
-    setNewMemberEmail('');
-    onAddMemberClose();
-  };
-
-  // Check if current user is the project owner
-  const isProjectOwner = currentUser === project.owner;
-
-  // Group tasks by status
-  const tasksByStatus = {
-    'To Do': projectTasks.filter(task => task.status === 'To Do'),
-    'In Progress': projectTasks.filter(task => task.status === 'In Progress'),
-    'Done': projectTasks.filter(task => task.status === 'Done'),
-  };
-
-  const TaskCard = ({ task }) => (
-    <Box
-      bg="gray.800"
-      borderRadius="xl"
-      p={5}
-      border="1px"
-      borderColor="gray.700"
-      boxShadow="md"
-      _hover={{ 
-        boxShadow: 'xl', 
-        transform: 'translateY(-2px)',
-        borderColor: 'gray.600',
-        cursor: 'pointer'
-      }}
-      transition="all 0.2s"
-      cursor="move"
-      draggable
-      onDragStart={(e) => handleDragStart(e, task)}
-      onClick={() => handleTaskClick(task.id)}
-      mb={4}
-    >
-      {/* Drag Handle */}
-      <Flex align="center" justify="space-between" mb={3}>
-        <Icon as={FaGripVertical} color="gray.500" boxSize={3} />
-        <HStack spacing={2}>
-          {task.tags.map((tag, index) => (
-            <Badge
-              key={index}
-              colorScheme={getTagColor(tag)}
-              variant="subtle"
-              borderRadius="full"
-              fontSize="xs"
-              px={2}
-            >
-              {tag}
-            </Badge>
-          ))}
-        </HStack>
-      </Flex>
-
-      {/* Title */}
-      <Heading size="sm" color="white" mb={2} noOfLines={2}>
-        {task.title}
-      </Heading>
-
-      {/* Description */}
-      <Text color="gray.400" fontSize="sm" mb={4} noOfLines={3}>
-        {task.description}
-      </Text>
-
-      <Divider borderColor="gray.700" mb={4} />
-
-      {/* Footer */}
-      <Flex justify="space-between" align="center">
-        <HStack spacing={3}>
-          <HStack spacing={1}>
-            <Icon as={FaUser} color="gray.500" boxSize={3} />
-            <Avatar name={task.assignedTo} size="xs" />
-          </HStack>
-          <HStack spacing={1}>
-            <Icon as={FaClock} color="gray.500" boxSize={3} />
-            <Text color="gray.400" fontSize="xs">
-              {formatDate(task.dueDate)}
-            </Text>
-          </HStack>
-        </HStack>
-        <Badge 
-          colorScheme={getPriorityColor(task.priority)}
-          variant="outline"
-          borderRadius="full"
-          fontSize="xs"
-          px={2}
-        >
-          {task.priority}
-        </Badge>
-      </Flex>
-    </Box>
-  );
-
-  const StatusColumn = ({ status, tasks, count }) => (
-    <Box
-      bg="gray.900"
-      borderRadius="2xl"
-      p={6}
-      border="1px"
-      borderColor="gray.700"
-      flex="1"
-      minH="500px"
-      onDragOver={handleDragOver}
-      onDrop={(e) => handleDrop(e, status)}
-    >
-      {/* Column Header */}
-      <Flex justify="space-between" align="center" mb={6}>
-        <HStack spacing={3}>
-          <Box
-            w={3}
-            h={3}
-            borderRadius="full"
-            bg={`${getStatusColor(status)}.500`}
-          />
-          <Heading size="md" color="white">
-            {status}
-          </Heading>
-        </HStack>
-        <Badge
-          colorScheme={getStatusColor(status)}
-          variant="subtle"
-          borderRadius="full"
-          px={3}
-        >
-          {count}
-        </Badge>
-      </Flex>
-
-      {/* Tasks */}
-      <VStack spacing={0} align="stretch">
-        {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
-        ))}
-        
-        {tasks.length === 0 && (
-          <Box
-            border="2px dashed"
-            borderColor="gray.700"
-            borderRadius="xl"
-            p={8}
-            textAlign="center"
-          >
-            <Text color="gray.500" fontSize="sm">
-              Drop tasks here
-            </Text>
-          </Box>
-        )}
-      </VStack>
-    </Box>
-  );
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric',
-      year: 'numeric' 
-    });
+    return new Date(dateString).toLocaleDateString();
   };
 
-  const getDaysRemaining = (deadline) => {
+  const calculateDaysLeft = (deadline) => {
     const today = new Date();
     const deadlineDate = new Date(deadline);
     const diffTime = deadlineDate - today;
@@ -552,472 +239,742 @@ const ProjectDetailsPage = () => {
     return diffDays;
   };
 
-  return (
-    <Box px={8} py={6} bg={useColorModeValue('gray.50', 'gray.900')} minH="100vh">
-      {/* Back Button */}
-      <Button
-        leftIcon={<Icon as={FaArrowLeft} />}
-        variant="ghost"
-        colorScheme="blue"
-        mb={6}
-        onClick={() => navigate('/projects')}
-        _hover={{ bg: useColorModeValue('blue.50', 'blue.900') }}
-      >
-        Back to Projects
-      </Button>
+  const getProgressColor = (progress) => {
+    if (progress >= 80) return 'green';
+    if (progress >= 50) return 'blue';
+    if (progress >= 25) return 'yellow';
+    return 'red';
+  };
 
-      {/* Main Content Card */}
-      <Box
-        bg={cardBg}
-        borderRadius="2xl"
-        p={8}
-        boxShadow="xl"
-        border="1px"
-        borderColor={borderColor}
-      >
-        {/* Header */}
-        <Flex justify="space-between" align="flex-start" mb={6}>
-          <VStack align="start" spacing={2}>
-            <Heading size="xl" color={textColor}>
-              {project.name}
-            </Heading>
-            <Text color="gray.500" fontSize="lg" maxW="2xl">
-              {project.description}
-            </Text>
+  // Calculate project statistics
+  const projectStats = useMemo(() => {
+    const totalTasks = features.reduce((sum, feature) => sum + feature.tasksCount, 0);
+    const completedTasks = features.reduce((sum, feature) => sum + feature.completedTasks, 0);
+    const completedFeatures = features.filter(f => f.status === 'Done').length;
+    const inProgressFeatures = features.filter(f => f.status === 'In Progress').length;
+    const pendingFeatures = features.filter(f => f.status === 'To Do').length;
+
+    return {
+      totalTasks,
+      completedTasks,
+      completedFeatures,
+      inProgressFeatures,
+      pendingFeatures,
+      totalFeatures: features.length,
+    };
+  }, [features]);
+
+  // Burndown Chart Component
+  const BurndownChart = () => {
+    const maxValue = Math.max(...burndownData.map(d => Math.max(d.planned, d.actual)));
+    const chartHeight = 300;
+    const chartWidth = 600;
+    const padding = 40;
+
+    return (
+      <Card bg={cardBg} borderColor={borderColor}>
+        <CardBody>
+          <VStack spacing={6}>
+            <HStack justify="space-between" w="full">
+              <VStack align="start" spacing={1}>
+                <Heading size="md">Burndown Chart</Heading>
+                <Text color="gray.500" fontSize="sm">
+                  Track project completion over time
+                </Text>
+              </VStack>
+              <HStack spacing={4}>
+                <HStack>
+                  <Box w={3} h={3} bg="blue.500" borderRadius="full" />
+                  <Text fontSize="sm">Planned</Text>
+                </HStack>
+                <HStack>
+                  <Box w={3} h={3} bg="green.500" borderRadius="full" />
+                  <Text fontSize="sm">Actual</Text>
+                </HStack>
+              </HStack>
+            </HStack>
+
+            {/* SVG Chart */}
+            <Box w="full" overflowX="auto">
+              <svg width={chartWidth} height={chartHeight + padding * 2}>
+                {/* Grid lines */}
+                {[0, 25, 50, 75, 100].map(value => (
+                  <g key={value}>
+                    <line
+                      x1={padding}
+                      y1={padding + (chartHeight * (100 - value)) / 100}
+                      x2={chartWidth - padding}
+                      y2={padding + (chartHeight * (100 - value)) / 100}
+                      stroke={useColorModeValue('#E2E8F0', '#4A5568')}
+                      strokeDasharray="2,2"
+                    />
+                    <text
+                      x={padding - 10}
+                      y={padding + (chartHeight * (100 - value)) / 100 + 5}
+                      fontSize="12"
+                      fill={useColorModeValue('#718096', '#A0AEC0')}
+                      textAnchor="end"
+                    >
+                      {value}
+                    </text>
+                  </g>
+                ))}
+
+                {/* Planned line */}
+                <polyline
+                  points={burndownData.map((d, i) => 
+                    `${padding + (i * (chartWidth - 2 * padding)) / (burndownData.length - 1)},${
+                      padding + (chartHeight * (100 - d.planned)) / 100
+                    }`
+                  ).join(' ')}
+                  fill="none"
+                  stroke="#3182CE"
+                  strokeWidth="2"
+                />
+
+                {/* Actual line */}
+                <polyline
+                  points={burndownData.map((d, i) => 
+                    `${padding + (i * (chartWidth - 2 * padding)) / (burndownData.length - 1)},${
+                      padding + (chartHeight * (100 - d.actual)) / 100
+                    }`
+                  ).join(' ')}
+                  fill="none"
+                  stroke="#38A169"
+                  strokeWidth="2"
+                />
+
+                {/* Data points */}
+                {burndownData.map((d, i) => (
+                  <g key={i}>
+                    <circle
+                      cx={padding + (i * (chartWidth - 2 * padding)) / (burndownData.length - 1)}
+                      cy={padding + (chartHeight * (100 - d.planned)) / 100}
+                      r="3"
+                      fill="#3182CE"
+                    />
+                    <circle
+                      cx={padding + (i * (chartWidth - 2 * padding)) / (burndownData.length - 1)}
+                      cy={padding + (chartHeight * (100 - d.actual)) / 100}
+                      r="3"
+                      fill="#38A169"
+                    />
+                  </g>
+                ))}
+
+                {/* X-axis labels */}
+                {burndownData.filter((_, i) => i % 3 === 0).map((d, i) => {
+                  const actualIndex = i * 3;
+                  return (
+                    <text
+                      key={actualIndex}
+                      x={padding + (actualIndex * (chartWidth - 2 * padding)) / (burndownData.length - 1)}
+                      y={chartHeight + padding + 20}
+                      fontSize="10"
+                      fill={useColorModeValue('#718096', '#A0AEC0')}
+                      textAnchor="middle"
+                    >
+                      {new Date(d.date).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                    </text>
+                  );
+                })}
+              </svg>
+            </Box>
+
+            {/* Chart insights */}
+            <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} w="full">
+              <Stat textAlign="center">
+                <StatLabel>Current Velocity</StatLabel>
+                <StatNumber color="green.500">
+                  {burndownData[burndownData.length - 3]?.actual - burndownData[burndownData.length - 1]?.actual || 0} pts/week
+                </StatNumber>
+              </Stat>
+              <Stat textAlign="center">
+                <StatLabel>Remaining Work</StatLabel>
+                <StatNumber color="blue.500">
+                  {burndownData[burndownData.length - 1]?.actual || 0} points
+                </StatNumber>
+              </Stat>
+              <Stat textAlign="center">
+                <StatLabel>Days to Completion</StatLabel>
+                <StatNumber color={calculateDaysLeft(project.deadline) < 7 ? 'red.500' : 'gray.500'}>
+                  {calculateDaysLeft(project.deadline)} days
+                </StatNumber>
+              </Stat>
+            </SimpleGrid>
           </VStack>
-          <HStack spacing={3}>
-            {/* Only show buttons to project owner */}
-            {isProjectOwner && (
-              <>
-                {/* Add Member Button */}
-                <Button
-                  colorScheme="green"
-                  variant="outline"
-                  leftIcon={<Icon as={FaUserPlus} />}
-                  onClick={onAddMemberOpen}
-                  size="sm"
-                >
-                  Add Member
+        </CardBody>
+      </Card>
+    );
+  };
+
+  // Gantt Chart Component
+  const GanttChart = () => {
+    const chartWidth = 800;
+    const rowHeight = 50;
+    const chartHeight = features.length * rowHeight;
+    const padding = 40;
+
+    const startDate = new Date(project.startDate);
+    const endDate = new Date(project.deadline);
+    const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+
+    const getPositionX = (date) => {
+      const targetDate = new Date(date);
+      const daysFromStart = Math.ceil((targetDate - startDate) / (1000 * 60 * 60 * 24));
+      return padding + (daysFromStart / totalDays) * (chartWidth - 2 * padding);
+    };
+
+    const getBarWidth = (start, end) => {
+      const startX = getPositionX(start);
+      const endX = getPositionX(end);
+      return endX - startX;
+    };
+
+    return (
+      <Card bg={cardBg} borderColor={borderColor}>
+        <CardBody>
+          <VStack spacing={6}>
+            <HStack justify="space-between" w="full">
+              <VStack align="start" spacing={1}>
+                <Heading size="md">Gantt Chart</Heading>
+                <Text color="gray.500" fontSize="sm">
+                  Project timeline and feature dependencies
+                </Text>
+              </VStack>
+              <HStack spacing={4}>
+                <Button size="sm" leftIcon={<FaPlay />} colorScheme="green" variant="outline">
+                  Start Sprint
                 </Button>
-                
-                {/* Edit Project Button */}
-                <Button
-                  colorScheme="blue"
-                  variant="outline"
-                  leftIcon={<Icon as={FaEdit} />}
-                  onClick={handleEditProject}
-                  size="sm"
-                >
-                  Edit Project
+                <Button size="sm" leftIcon={<FaEdit />} variant="outline">
+                  Edit Timeline
                 </Button>
-              </>
-            )}
-            
-            <Badge 
-              colorScheme={getStatusColor(project.status)}
-              borderRadius="full"
-              px={4}
-              py={2}
-              fontSize="md"
-            >
-              {project.status}
-            </Badge>
+              </HStack>
+            </HStack>
+
+            <Box w="full" overflowX="auto">
+              <svg width={chartWidth} height={chartHeight + padding * 2}>
+                {/* Timeline header */}
+                {Array.from({ length: 8 }, (_, i) => {
+                  const monthStart = new Date(startDate);
+                  monthStart.setMonth(startDate.getMonth() + i);
+                  return (
+                    <g key={i}>
+                      <line
+                        x1={getPositionX(monthStart)}
+                        y1={padding}
+                        x2={getPositionX(monthStart)}
+                        y2={chartHeight + padding}
+                        stroke={useColorModeValue('#E2E8F0', '#4A5568')}
+                        strokeDasharray="2,2"
+                      />
+                      <text
+                        x={getPositionX(monthStart) + 10}
+                        y={padding - 10}
+                        fontSize="12"
+                        fill={useColorModeValue('#718096', '#A0AEC0')}
+                      >
+                        {monthStart.toLocaleDateString('en', { month: 'short', year: '2-digit' })}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Feature bars */}
+                {features.map((feature, index) => {
+                  const y = padding + index * rowHeight + rowHeight / 4;
+                  const barHeight = rowHeight / 2;
+                  const barWidth = getBarWidth(feature.startDate, feature.endDate);
+                  const x = getPositionX(feature.startDate);
+
+                  let barColor = '#E2E8F0';
+                  if (feature.status === 'Done') barColor = '#38A169';
+                  else if (feature.status === 'In Progress') barColor = '#3182CE';
+                  else if (feature.status === 'To Do') barColor = '#ED8936';
+
+                  return (
+                    <g key={feature.id}>
+                      {/* Feature bar */}
+                      <rect
+                        x={x}
+                        y={y}
+                        width={barWidth}
+                        height={barHeight}
+                        fill={barColor}
+                        rx="4"
+                      />
+                      
+                      {/* Progress bar */}
+                      <rect
+                        x={x}
+                        y={y}
+                        width={barWidth * (feature.progress / 100)}
+                        height={barHeight}
+                        fill={feature.status === 'Done' ? '#2F855A' : '#2B6CB0'}
+                        rx="4"
+                      />
+
+                      {/* Feature name */}
+                      <text
+                        x={padding - 10}
+                        y={y + barHeight / 2 + 5}
+                        fontSize="12"
+                        fill={useColorModeValue('#2D3748', '#F7FAFC')}
+                        textAnchor="end"
+                      >
+                        {feature.name}
+                      </text>
+
+                      {/* Progress percentage */}
+                      <text
+                        x={x + barWidth / 2}
+                        y={y + barHeight / 2 + 4}
+                        fontSize="10"
+                        fill="white"
+                        textAnchor="middle"
+                        fontWeight="bold"
+                      >
+                        {feature.progress}%
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Today indicator */}
+                <line
+                  x1={getPositionX(new Date())}
+                  y1={padding}
+                  x2={getPositionX(new Date())}
+                  y2={chartHeight + padding}
+                  stroke="#E53E3E"
+                  strokeWidth="2"
+                />
+                <text
+                  x={getPositionX(new Date()) + 5}
+                  y={padding - 10}
+                  fontSize="12"
+                  fill="#E53E3E"
+                  fontWeight="bold"
+                >
+                  Today
+                </text>
+              </svg>
+            </Box>
+
+            {/* Gantt insights */}
+            <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4} w="full">
+              <Stat textAlign="center">
+                <StatLabel>On Schedule</StatLabel>
+                <StatNumber color="green.500">
+                  {features.filter(f => f.progress >= 75).length}
+                </StatNumber>
+              </Stat>
+              <Stat textAlign="center">
+                <StatLabel>At Risk</StatLabel>
+                <StatNumber color="yellow.500">
+                  {features.filter(f => f.progress >= 25 && f.progress < 75).length}
+                </StatNumber>
+              </Stat>
+              <Stat textAlign="center">
+                <StatLabel>Behind Schedule</StatLabel>
+                <StatNumber color="red.500">
+                  {features.filter(f => f.progress < 25 && f.status !== 'To Do').length}
+                </StatNumber>
+              </Stat>
+              <Stat textAlign="center">
+                <StatLabel>Critical Path</StatLabel>
+                <StatNumber color="purple.500">
+                  3 features
+                </StatNumber>
+              </Stat>
+            </SimpleGrid>
+          </VStack>
+        </CardBody>
+      </Card>
+    );
+  };
+
+  return (
+    <VStack align="stretch" spacing={8}>
+      {/* Header */}
+      <HStack spacing={4} mb={4}>
+        <Button
+          leftIcon={<FaArrowLeft />}
+          variant="ghost"
+          colorScheme="blue"
+            onClick={() => navigate('/projects')}
+          >
+            Back to Projects
+          </Button>
+          <Divider orientation="vertical" h={6} />
+          <HStack>
+            <Icon as={FaProjectDiagram} color="blue.500" boxSize={6} />
+            <VStack align="start" spacing={0}>
+              <Heading size="lg">{project.name}</Heading>
+              <Text color="gray.500" fontSize="sm">Project Details & Analytics</Text>
+            </VStack>
           </HStack>
-        </Flex>
+        </HStack>
 
-        {/* Owner & Team */}
-        <VStack spacing={4} mb={8}>
-          <Flex justify="space-between" w="full" align="center">
-            <HStack spacing={3}>
-              <Icon as={FaUsers} color="gray.500" boxSize={5} />
-              <Text color={textColor} fontWeight="semibold">
-                Project Owner: {project.owner}
-              </Text>
-            </HStack>
-            <AvatarGroup size="md" max={5} spacing="-0.5rem">
-              {project.team.map((name, index) => (
-                <Avatar 
-                  key={index} 
-                  name={name} 
-                  border="2px solid"
-                  borderColor={cardBg}
-                />
-              ))}
-            </AvatarGroup>
-          </Flex>
-        </VStack>
-
-        <Divider borderColor={borderColor} mb={8} />
-
-        {/* Stats Grid */}
-        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={8} mb={8}>
-          <Box
-            p={6}
-            bg={useColorModeValue('blue.50', 'blue.900')}
-            borderRadius="xl"
-            textAlign="center"
-          >
-            <Icon as={FaCalendarAlt} color="blue.500" boxSize={8} mb={2} />
-            <Text fontSize="sm" color="gray.500" mb={1}>Start Date</Text>
-            <Text fontWeight="bold" color={textColor}>
-              {formatDate(project.startDate)}
-            </Text>
-          </Box>
-
-          <Box
-            p={6}
-            bg={useColorModeValue('red.50', 'red.900')}
-            borderRadius="xl"
-            textAlign="center"
-          >
-            <Icon as={FaClock} color="red.500" boxSize={8} mb={2} />
-            <Text fontSize="sm" color="gray.500" mb={1}>Due Date</Text>
-            <Text fontWeight="bold" color={textColor}>
-              {formatDate(project.deadline)}
-            </Text>
-            <Text fontSize="xs" color={getDaysRemaining(project.deadline) < 7 ? "red.500" : "gray.500"}>
-              {getDaysRemaining(project.deadline)} days remaining
-            </Text>
-          </Box>
-
-          <Box
-            p={6}
-            bg={useColorModeValue('green.50', 'green.900')}
-            borderRadius="xl"
-            textAlign="center"
-          >
-            <Text fontSize="2xl" fontWeight="bold" color="green.500" mb={1}>
-              {project.tasksCompleted}
-            </Text>
-            <Text fontSize="sm" color="gray.500">Tasks Completed</Text>
-          </Box>
-
-          <Box
-            p={6}
-            bg={useColorModeValue('orange.50', 'orange.900')}
-            borderRadius="xl"
-            textAlign="center"
-          >
-            <Text fontSize="2xl" fontWeight="bold" color="orange.500" mb={1}>
-              {project.totalTasks}
-            </Text>
-            <Text fontSize="sm" color="gray.500">Total Tasks</Text>
-          </Box>
-        </SimpleGrid>
-
-        {/* Progress Section */}
-        <Box
-          p={6}
-          bg={useColorModeValue('gray.50', 'gray.700')}
-          borderRadius="xl"
-          mb={8}
-        >
-          <Flex justify="space-between" align="center" mb={4}>
-            <Text fontSize="lg" fontWeight="semibold" color={textColor}>
-              Project Progress
-            </Text>
-            <Text fontSize="2xl" fontWeight="bold" color={textColor}>
-              {project.progress}%
-            </Text>
-          </Flex>
-          <Progress 
-            value={project.progress} 
-            colorScheme={getStatusColor(project.status)}
-            borderRadius="full"
-            size="lg"
-            bg={useColorModeValue('gray.200', 'gray.600')}
-          />
-          <Flex justify="space-between" mt={3}>
-            <Text fontSize="sm" color="gray.500">
-              {project.tasksCompleted} of {project.totalTasks} tasks completed
-            </Text>
-            <Text fontSize="sm" color="gray.500">
-              {project.totalTasks - project.tasksCompleted} tasks remaining
-            </Text>
-          </Flex>
-        </Box>
-
-        {/* Tabs for Project Details and Tasks */}
-        <Tabs colorScheme="blue" variant="enclosed">
-          <TabList>
-            <Tab>
-              <Icon as={FaCalendarAlt} mr={2} />
-              Project Overview
-            </Tab>
-            <Tab>
-              <Icon as={FaTasks} mr={2} />
-              Tasks ({projectTasks.length})
-            </Tab>
-          </TabList>
-
-          <TabPanels>
-            {/* Project Overview Tab */}
-            <TabPanel px={0}>
-              <Text color="gray.500" fontSize="lg" textAlign="center" py={8}>
-                Additional project details, milestones, and documentation would go here.
-              </Text>
-            </TabPanel>
-
-            {/* Tasks Tab */}
-            <TabPanel px={0}>
-              <Box>
-                <Flex justify="space-between" align="center" mb={6}>
-                  <Text fontSize="lg" fontWeight="semibold" color={textColor}>
-                    Project Tasks - Kanban Board
-                  </Text>
-                  <Button
-                    leftIcon={<Icon as={FaEye} />}
-                    colorScheme="blue"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate('/tasks')}
-                  >
-                    View All Tasks
-                  </Button>
-                </Flex>
-
-                {projectTasks.length > 0 ? (
-                  <Flex gap={6} align="start" overflowX="auto" pb={4}>
-                    <StatusColumn 
-                      status="To Do" 
-                      tasks={tasksByStatus['To Do']} 
-                      count={tasksByStatus['To Do'].length}
-                    />
-                    <StatusColumn 
-                      status="In Progress" 
-                      tasks={tasksByStatus['In Progress']} 
-                      count={tasksByStatus['In Progress'].length}
-                    />
-                    <StatusColumn 
-                      status="Done" 
-                      tasks={tasksByStatus['Done']} 
-                      count={tasksByStatus['Done'].length}
-                    />
-                  </Flex>
-                ) : (
-                  <Box
-                    textAlign="center"
-                    py={12}
-                    bg={useColorModeValue('gray.50', 'gray.700')}
-                    borderRadius="xl"
-                    border="2px dashed"
-                    borderColor="gray.300"
-                  >
-                    <Icon as={FaTasks} boxSize={12} color="gray.400" mb={4} />
-                    <Text color="gray.500" fontSize="lg" mb={2}>
-                      No tasks found for this project
-                    </Text>
-                    <Text color="gray.400" fontSize="sm">
-                      Tasks will appear here once they are created and assigned to this project.
-                    </Text>
-                  </Box>
-                )}
-              </Box>
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
-      </Box>
-
-      {/* Edit Project Modal */}
-      <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
-        <ModalOverlay bg="blackAlpha.800" />
-        <ModalContent bg={cardBg} border="1px" borderColor={borderColor}>
-          <ModalHeader color={textColor}>
-            <HStack spacing={3}>
-              <Icon as={FaEdit} color="blue.400" />
-              <Text>Edit Project</Text>
-            </HStack>
-          </ModalHeader>
-          <ModalCloseButton color="gray.400" />
-          
-          <ModalBody pb={6}>
+        {/* Project Summary Card */}
+        <Card bg={cardBg} borderColor={borderColor}>
+          <CardBody>
             <VStack spacing={6}>
-              {/* Project Name */}
-              <FormControl isRequired>
-                <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
-                  Project Name
-                </FormLabel>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <Icon as={FaProjectDiagram} color="gray.500" />
-                  </InputLeftElement>
-                  <Input
-                    name="name"
-                    value={editFormData.name}
-                    onChange={handleEditInputChange}
-                    placeholder="Enter project name"
-                    bg={useColorModeValue('white', 'gray.700')}
-                    border="1px"
-                    borderColor={borderColor}
-                    color={textColor}
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500" }}
-                    pl={10}
-                  />
-                </InputGroup>
-              </FormControl>
-
-              {/* Project Description */}
-              <FormControl isRequired>
-                <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
-                  Description
-                </FormLabel>
-                <Textarea
-                  name="description"
-                  value={editFormData.description}
-                  onChange={handleEditInputChange}
-                  placeholder="Describe your project..."
-                  bg={useColorModeValue('white', 'gray.700')}
-                  border="1px"
-                  borderColor={borderColor}
-                  color={textColor}
-                  _hover={{ borderColor: "gray.500" }}
-                  _focus={{ borderColor: "blue.500" }}
-                  rows={4}
-                  resize="vertical"
-                />
-              </FormControl>
-
-              {/* Status and Deadline Row */}
-              <SimpleGrid columns={2} spacing={4} w="full">
-                <FormControl>
-                  <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
-                    Status
-                  </FormLabel>
-                  <Select
-                    name="status"
-                    value={editFormData.status}
-                    onChange={handleEditInputChange}
-                    bg={useColorModeValue('white', 'gray.700')}
-                    border="1px"
-                    borderColor={borderColor}
-                    color={textColor}
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500" }}
-                  >
-                    <option value="Pending" style={{ backgroundColor: useColorModeValue('white', '#2D3748') }}>Pending</option>
-                    <option value="In Progress" style={{ backgroundColor: useColorModeValue('white', '#2D3748') }}>In Progress</option>
-                    <option value="Completed" style={{ backgroundColor: useColorModeValue('white', '#2D3748') }}>Completed</option>
-                  </Select>
-                </FormControl>
-
-                <FormControl isRequired>
-                  <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
-                    Deadline
-                  </FormLabel>
-                  <InputGroup>
-                    <InputLeftElement pointerEvents="none">
+              {/* Project Header */}
+              <Flex justify="space-between" align="start" w="full">
+                <VStack align="start" spacing={2} flex={1}>
+                  <HStack>
+                    <Heading size="xl">{project.name}</Heading>
+                    <Badge colorScheme={getStatusColor(project.status)} px={3} py={1}>
+                      {project.status}
+                    </Badge>
+                    <Badge colorScheme={getPriorityColor(project.priority)} px={3} py={1}>
+                      {project.priority} Priority
+                    </Badge>
+                  </HStack>
+                  <Text color="gray.600" maxW="2xl">
+                    {project.description}
+                  </Text>
+                  <HStack spacing={6} mt={2}>
+                    <HStack>
+                      <Icon as={FaUser} color="gray.500" />
+                      <Text fontSize="sm" color="gray.600">Owner: {project.owner}</Text>
+                    </HStack>
+                    <HStack>
                       <Icon as={FaCalendarAlt} color="gray.500" />
-                    </InputLeftElement>
-                    <Input
-                      name="deadline"
-                      type="date"
-                      value={editFormData.deadline}
-                      onChange={handleEditInputChange}
-                      bg={useColorModeValue('white', 'gray.700')}
-                      border="1px"
-                      borderColor={borderColor}
-                      color={textColor}
-                      _hover={{ borderColor: "gray.500" }}
-                      _focus={{ borderColor: "blue.500" }}
-                      pl={10}
-                    />
-                  </InputGroup>
-                </FormControl>
+                      <Text fontSize="sm" color="gray.600">
+                        {formatDate(project.startDate)} - {formatDate(project.deadline)}
+                      </Text>
+                    </HStack>
+                    <HStack>
+                      <Icon as={FaClock} color="gray.500" />
+                      <Text fontSize="sm" color="gray.600">
+                        {calculateDaysLeft(project.deadline)} days left
+                      </Text>
+                    </HStack>
+                  </HStack>
+                </VStack>
+
+                <VStack align="end" spacing={3}>
+                  <HStack spacing={2}>
+                    <Button size="sm" leftIcon={<FaEdit />} variant="outline">
+                      Edit Project
+                    </Button>
+                    <Button size="sm" leftIcon={<FaUserPlus />} colorScheme="blue" variant="outline">
+                      Add Member
+                    </Button>
+                  </HStack>
+                  <AvatarGroup size="sm" max={5}>
+                    {project.team.map((member, index) => (
+                      <Tooltip key={index} label={`${member.name} - ${member.role}`}>
+                        <Avatar name={member.name} />
+                      </Tooltip>
+                    ))}
+                  </AvatarGroup>
+                </VStack>
+              </Flex>
+
+              {/* Progress Section */}
+              <Box w="full">
+                <HStack justify="space-between" mb={2}>
+                  <Text fontWeight="semibold">Overall Progress</Text>
+                  <Text fontSize="lg" fontWeight="bold" color={`${getProgressColor(project.progress)}.500`}>
+                    {project.progress}%
+                  </Text>
+                </HStack>
+                <Progress 
+                  value={project.progress} 
+                  colorScheme={getProgressColor(project.progress)} 
+                  size="lg" 
+                  borderRadius="full"
+                />
+                <HStack justify="space-between" mt={2} fontSize="sm" color="gray.600">
+                  <Text>{projectStats.completedTasks} of {projectStats.totalTasks} tasks completed</Text>
+                  <Text>{projectStats.completedFeatures} of {projectStats.totalFeatures} features done</Text>
+                </HStack>
+              </Box>
+
+              {/* Stats Grid */}
+              <SimpleGrid columns={{ base: 2, md: 4, lg: 6 }} spacing={4} w="full">
+                <Stat textAlign="center" bg={useColorModeValue('blue.50', 'blue.900')} p={4} borderRadius="lg">
+                  <StatLabel fontSize="xs">Total Features</StatLabel>
+                  <StatNumber color="blue.500">{projectStats.totalFeatures}</StatNumber>
+                </Stat>
+                <Stat textAlign="center" bg={useColorModeValue('green.50', 'green.900')} p={4} borderRadius="lg">
+                  <StatLabel fontSize="xs">Completed</StatLabel>
+                  <StatNumber color="green.500">{projectStats.completedFeatures}</StatNumber>
+                </Stat>
+                <Stat textAlign="center" bg={useColorModeValue('yellow.50', 'yellow.900')} p={4} borderRadius="lg">
+                  <StatLabel fontSize="xs">In Progress</StatLabel>
+                  <StatNumber color="yellow.500">{projectStats.inProgressFeatures}</StatNumber>
+                </Stat>
+                <Stat textAlign="center" bg={useColorModeValue('gray.50', 'gray.700')} p={4} borderRadius="lg">
+                  <StatLabel fontSize="xs">Pending</StatLabel>
+                  <StatNumber color="gray.500">{projectStats.pendingFeatures}</StatNumber>
+                </Stat>
+                <Stat textAlign="center" bg={useColorModeValue('purple.50', 'purple.900')} p={4} borderRadius="lg">
+                  <StatLabel fontSize="xs">Budget Used</StatLabel>
+                  <StatNumber color="purple.500">75%</StatNumber>
+                </Stat>
+                <Stat textAlign="center" bg={useColorModeValue('teal.50', 'teal.900')} p={4} borderRadius="lg">
+                  <StatLabel fontSize="xs">Team Size</StatLabel>
+                  <StatNumber color="teal.500">{project.team.length}</StatNumber>
+                </Stat>
               </SimpleGrid>
             </VStack>
-          </ModalBody>
+          </CardBody>
+        </Card>
 
-          <ModalFooter>
-            <Button 
-              variant="ghost" 
-              mr={3} 
-              onClick={onEditClose}
-              color="gray.400"
-              _hover={{ color: textColor, bg: useColorModeValue('gray.100', 'gray.700') }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              colorScheme="blue" 
-              onClick={handleSaveProject}
-              leftIcon={<Icon as={FaEdit} />}
-              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
-              transition="all 0.2s"
-            >
-              Update Project
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+        {/* Main Tabs */}
+        <Card bg={cardBg} borderColor={borderColor}>
+          <CardBody p={0}>
+            <Tabs colorScheme="blue" variant="enclosed">
+              <TabList>
+                <Tab leftIcon={<FaProjectDiagram />}>
+                  Overview
+                </Tab>
+                <Tab leftIcon={<FaBurn />}>
+                  Burndown Chart
+                </Tab>
+                <Tab leftIcon={<FaChartBar />}>
+                  Gantt Chart
+                </Tab>
+                <Tab leftIcon={<FaUsers />}>
+                  Team
+                </Tab>
+                <Tab leftIcon={<FaTasks />}>
+                  Features
+                </Tab>
+              </TabList>
 
-      {/* Add Member Modal */}
-      <Modal isOpen={isAddMemberOpen} onClose={onAddMemberClose} size="md">
-        <ModalOverlay bg="blackAlpha.800" />
-        <ModalContent bg={cardBg} border="1px" borderColor={borderColor}>
-          <ModalHeader color={textColor}>
-            <HStack spacing={3}>
-              <Icon as={FaUserPlus} color="green.400" />
-              <Text>Add Team Member</Text>
-            </HStack>
-          </ModalHeader>
-          <ModalCloseButton color="gray.400" />
-          
-          <ModalBody pb={6}>
-            <VStack spacing={4}>
-              <FormControl isRequired>
-                <FormLabel color={textColor} fontSize="sm" fontWeight="medium">
-                  Member Email
-                </FormLabel>
-                <InputGroup>
-                  <InputLeftElement pointerEvents="none">
-                    <Icon as={FaUser} color="gray.500" />
-                  </InputLeftElement>
-                  <Input
-                    type="email"
-                    value={newMemberEmail}
-                    onChange={(e) => setNewMemberEmail(e.target.value)}
-                    placeholder="Enter member email address"
-                    bg={useColorModeValue('white', 'gray.700')}
-                    border="1px"
-                    borderColor={borderColor}
-                    color={textColor}
-                    _hover={{ borderColor: "gray.500" }}
-                    _focus={{ borderColor: "blue.500" }}
-                    pl={10}
-                  />
-                </InputGroup>
-              </FormControl>
-              
-              <Text fontSize="sm" color="gray.500" textAlign="center">
-                An invitation will be sent to this email address to join the project.
-              </Text>
-            </VStack>
-          </ModalBody>
+              <TabPanels>
+                {/* Overview Tab */}
+                <TabPanel>
+                  <VStack spacing={6}>
+                    {/* Recent Activity */}
+                    <Card bg={useColorModeValue('gray.50', 'gray.700')} borderColor={borderColor} w="full">
+                      <CardBody>
+                        <Heading size="md" mb={4}>Recent Activity</Heading>
+                        <VStack align="stretch" spacing={3}>
+                          <HStack>
+                            <Icon as={FaCheckCircle} color="green.500" />
+                            <Text fontSize="sm">Shopping Cart feature completed by Tom Brown</Text>
+                            <Badge size="sm" variant="outline">2 hours ago</Badge>
+                          </HStack>
+                          <HStack>
+                            <Icon as={FaPlay} color="blue.500" />
+                            <Text fontSize="sm">Payment Integration started by Sarah Wilson</Text>
+                            <Badge size="sm" variant="outline">1 day ago</Badge>
+                          </HStack>
+                          <HStack>
+                            <Icon as={FaUserPlus} color="purple.500" />
+                            <Text fontSize="sm">Lisa Chen added to the project team</Text>
+                            <Badge size="sm" variant="outline">3 days ago</Badge>
+                          </HStack>
+                          <HStack>
+                            <Icon as={FaEdit} color="yellow.500" />
+                            <Text fontSize="sm">Project deadline extended to August 15th</Text>
+                            <Badge size="sm" variant="outline">1 week ago</Badge>
+                          </HStack>
+                        </VStack>
+                      </CardBody>
+                    </Card>
 
-          <ModalFooter>
-            <Button 
-              variant="ghost" 
-              mr={3} 
-              onClick={onAddMemberClose}
-              color="gray.400"
-              _hover={{ color: textColor, bg: useColorModeValue('gray.100', 'gray.700') }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              colorScheme="green" 
-              onClick={handleAddMember}
-              leftIcon={<Icon as={FaUserPlus} />}
-              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
-              transition="all 0.2s"
-            >
-              Send Invitation
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-    </Box>
+                    {/* Milestones */}
+                    <Card bg={useColorModeValue('gray.50', 'gray.700')} borderColor={borderColor} w="full">
+                      <CardBody>
+                        <Heading size="md" mb={4}>Upcoming Milestones</Heading>
+                        <VStack align="stretch" spacing={3}>
+                          <HStack justify="space-between">
+                            <HStack>
+                              <Icon as={FaCalendarCheck} color="blue.500" />
+                              <Text fontSize="sm">Payment Integration MVP</Text>
+                            </HStack>
+                            <Badge colorScheme="blue">May 30, 2024</Badge>
+                          </HStack>
+                          <HStack justify="space-between">
+                            <HStack>
+                              <Icon as={FaCalendarCheck} color="yellow.500" />
+                              <Text fontSize="sm">Analytics Dashboard Beta</Text>
+                            </HStack>
+                            <Badge colorScheme="yellow">July 15, 2024</Badge>
+                          </HStack>
+                          <HStack justify="space-between">
+                            <HStack>
+                              <Icon as={FaCalendarCheck} color="green.500" />
+                              <Text fontSize="sm">Project Launch</Text>
+                            </HStack>
+                            <Badge colorScheme="green">August 15, 2024</Badge>
+                          </HStack>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+
+                    {/* Risk Assessment */}
+                    <Card bg={useColorModeValue('gray.50', 'gray.700')} borderColor={borderColor} w="full">
+                      <CardBody>
+                        <Heading size="md" mb={4}>Risk Assessment</Heading>
+                        <VStack align="stretch" spacing={3}>
+                          <Alert status="warning" borderRadius="md">
+                            <AlertIcon />
+                            <Text fontSize="sm">Payment Integration complexity may cause delays</Text>
+                          </Alert>
+                          <Alert status="info" borderRadius="md">
+                            <AlertIcon />
+                            <Text fontSize="sm">Additional team member needed for mobile development</Text>
+                          </Alert>
+                          <Alert status="success" borderRadius="md">
+                            <AlertIcon />
+                            <Text fontSize="sm">Core features ahead of schedule</Text>
+                          </Alert>
+                        </VStack>
+                      </CardBody>
+                    </Card>
+                  </VStack>
+                </TabPanel>
+
+                {/* Burndown Chart Tab */}
+                <TabPanel>
+                  <BurndownChart />
+                </TabPanel>
+
+                {/* Gantt Chart Tab */}
+                <TabPanel>
+                  <GanttChart />
+                </TabPanel>
+
+                {/* Team Tab */}
+                <TabPanel>
+                  <Card bg={useColorModeValue('gray.50', 'gray.700')} borderColor={borderColor}>
+                    <CardBody>
+                      <HStack justify="space-between" mb={6}>
+                        <Heading size="md">Team Members</Heading>
+                        <Button leftIcon={<FaUserPlus />} colorScheme="blue" size="sm">
+                          Add Member
+                        </Button>
+                      </HStack>
+                      
+                      <TableContainer>
+                        <Table variant="simple">
+                          <Thead>
+                            <Tr>
+                              <Th>Member</Th>
+                              <Th>Role</Th>
+                              <Th>Status</Th>
+                              <Th>Workload</Th>
+                              <Th>Actions</Th>
+                            </Tr>
+                          </Thead>
+                          <Tbody>
+                            {project.team.map((member, index) => (
+                              <Tr key={index}>
+                                <Td>
+                                  <HStack>
+                                    <Avatar size="sm" name={member.name} />
+                                    <Text>{member.name}</Text>
+                                  </HStack>
+                                </Td>
+                                <Td>{member.role}</Td>
+                                <Td>
+                                  <Badge 
+                                    colorScheme={member.status === 'active' ? 'green' : 'gray'}
+                                    textTransform="capitalize"
+                                  >
+                                    {member.status}
+                                  </Badge>
+                                </Td>
+                                <Td>
+                                  <Progress 
+                                    value={Math.random() * 100} 
+                                    size="sm" 
+                                    colorScheme="blue" 
+                                    borderRadius="full"
+                                  />
+                                </Td>
+                                <Td>
+                                  <Menu>
+                                    <MenuButton
+                                      as={IconButton}
+                                      icon={<FaEllipsisV />}
+                                      size="sm"
+                                      variant="ghost"
+                                    />
+                                    <MenuList>
+                                      <MenuItem icon={<FaEye />}>View Profile</MenuItem>
+                                      <MenuItem icon={<FaEdit />}>Edit Role</MenuItem>
+                                      <MenuItem icon={<FaTasks />}>Assign Tasks</MenuItem>
+                                    </MenuList>
+                                  </Menu>
+                                </Td>
+                              </Tr>
+                            ))}
+                          </Tbody>
+                        </Table>
+                      </TableContainer>
+                    </CardBody>
+                  </Card>
+                </TabPanel>
+
+                {/* Features Tab */}
+                <TabPanel>
+                  <VStack spacing={4}>
+                    <HStack justify="space-between" w="full">
+                      <Heading size="md">Project Features</Heading>
+                      <Button leftIcon={<FaPlus />} colorScheme="blue" size="sm">
+                        Add Feature
+                      </Button>
+                    </HStack>
+
+                    <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4} w="full">
+                      {features.map((feature) => (
+                        <Card key={feature.id} borderColor={borderColor}>
+                          <CardBody>
+                            <VStack align="stretch" spacing={3}>
+                              <HStack justify="space-between">
+                                <Heading size="sm">{feature.name}</Heading>
+                                <Badge 
+                                  colorScheme={
+                                    feature.status === 'Done' ? 'green' :
+                                    feature.status === 'In Progress' ? 'blue' : 'gray'
+                                  }
+                                >
+                                  {feature.status}
+                                </Badge>
+                              </HStack>
+                              
+                              <Text fontSize="sm" color="gray.600">
+                                Assigned to: {feature.assignedTo}
+                              </Text>
+                              
+                              <Box>
+                                <HStack justify="space-between" mb={1}>
+                                  <Text fontSize="xs" color="gray.500">Progress</Text>
+                                  <Text fontSize="xs" color="gray.500">{feature.progress}%</Text>
+                                </HStack>
+                                <Progress 
+                                  value={feature.progress} 
+                                  size="sm" 
+                                  colorScheme={getProgressColor(feature.progress)}
+                                  borderRadius="full"
+                                />
+                              </Box>
+                              
+                              <HStack justify="space-between" fontSize="xs" color="gray.500">
+                                <Text>Tasks: {feature.completedTasks}/{feature.tasksCount}</Text>
+                                <Text>Due: {formatDate(feature.endDate)}</Text>
+                              </HStack>
+                            </VStack>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </SimpleGrid>
+                  </VStack>
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
+          </CardBody>
+        </Card>
+      </VStack>
   );
 };
 

@@ -7,11 +7,16 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
-import Tasks from './pages/Tasks';
+import Board from './pages/Board';
+import Calendar from './pages/Calendar';
 import Chat from './pages/Chat';
 import Settings from './pages/Settings';
+import Documentation from './pages/Documentation';
+import AboutUs from './pages/AboutUs';
+import ContactUs from './pages/ContactUs';
+import StoryDetailsPage from './pages/StoryDetailsPage';
 import ProjectDetailsPage from './pages/ProjectDetailsPage';
-import TaskDetailsPage from './pages/TaskDetailsPage';
+import FeatureDetails from './pages/FeatureDetails';
 
 function App() {
   return (
@@ -22,62 +27,81 @@ function App() {
           <Route path="/" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           
-          {/* Protected Routes - With Sidebar and Layout */}
+          {/* Protected Routes - With Layout */}
+          <Route path="/docs" element={
+            <AppLayout>
+              <Documentation />
+            </AppLayout>
+          } />
+          <Route path="/documentation" element={
+            <AppLayout>
+              <Documentation />
+            </AppLayout>
+          } />
+          <Route path="/aboutus" element={
+            <AppLayout>
+              <AboutUs />
+            </AppLayout>
+          } />
+          <Route path="/about" element={
+            <AppLayout>
+              <AboutUs />
+            </AppLayout>
+          } />
+          <Route path="/contactus" element={
+            <AppLayout>
+              <ContactUs />
+            </AppLayout>
+          } />
+          <Route path="/contact" element={
+            <AppLayout>
+              <ContactUs />
+            </AppLayout>
+          } />
           <Route path="/dashboard" element={
-            <>
-              <Sidebar />
-              <AppLayout>
-                <Dashboard />
-              </AppLayout>
-            </>
+            <AppLayout>
+              <Dashboard />
+            </AppLayout>
           } />
           <Route path="/projects" element={
-            <>
-              <Sidebar />
-              <AppLayout>
-                <Projects />
-              </AppLayout>
-            </>
+            <AppLayout>
+              <Projects />
+            </AppLayout>
           } />
           <Route path="/projects/:projectId" element={
-            <>
-              <Sidebar />
-              <AppLayout>
-                <ProjectDetailsPage />
-              </AppLayout>
-            </>
+            <AppLayout>
+              <ProjectDetailsPage />
+            </AppLayout>
           } />
-          <Route path="/tasks" element={
-            <>
-              <Sidebar />
-              <AppLayout>
-                <Tasks />
-              </AppLayout>
-            </>
+          <Route path="/board" element={
+            <AppLayout>
+              <Board />
+            </AppLayout>
           } />
-          <Route path="/tasks/:taskId" element={
-            <>
-              <Sidebar />
-              <AppLayout>
-                <TaskDetailsPage />
-              </AppLayout>
-            </>
+          <Route path="/calendar" element={
+            <AppLayout>
+              <Calendar />
+            </AppLayout>
           } />
           <Route path="/chat" element={
-            <>
-              <Sidebar />
-              <AppLayout>
-                <Chat />
-              </AppLayout>
-            </>
+            <AppLayout>
+              <Chat />
+            </AppLayout>
           } />
           <Route path="/settings" element={
-            <>
-              <Sidebar />
-              <AppLayout>
-                <Settings />
-              </AppLayout>
-            </>
+            <AppLayout>
+              <Settings />
+            </AppLayout>
+          } />
+          <Route path="/features/:featureId" element={
+            <AppLayout>
+              <FeatureDetails />
+            </AppLayout>
+          } />
+          <Route path="/stories/:storyId" element={
+            <AppLayout>
+              <StoryDetailsPage />
+            </AppLayout>
           } />
         </Routes>
       </Router>
