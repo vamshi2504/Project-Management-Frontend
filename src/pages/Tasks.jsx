@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Box,
   Heading,
@@ -38,9 +39,38 @@ import {
   StatNumber,
   StatHelpText,
   Progress,
+  Spinner,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from '@chakra-ui/react';
 import { AddIcon, SearchIcon, ChevronDownIcon, EditIcon } from '@chakra-ui/icons';
 import { FaGripVertical, FaUser, FaClock, FaTasks, FaCalendarAlt, FaTag, FaProjectDiagram, FaCode, FaSave, FaTimes } from 'react-icons/fa';
+
+// Redux imports
+import {
+  fetchAllTasks,
+  fetchTasksByProject,
+  createTask,
+  updateTask,
+  deleteTask,
+  updateTaskStatus,
+  assignTask,
+  setFilters,
+  setSorting,
+  clearFilters,
+  setSelectedTask,
+  clearSelectedTask,
+  clearError
+} from '../store/slices/tasksSlice';
+import { useUser } from '../hooks/useUser';
 
 // Mock data with hierarchical structure: Projects -> Features -> Tasks
 const mockProjects = [
@@ -486,7 +516,25 @@ const formatDate = (dateString) => {
 };
 
 const TasksPage = () => {
-  const [projects] = useState(mockProjects);
+  // Redux state and dispatch
+  const dispatch = useDispatch();
+  const { user } = useUser();
+  const { 
+    tasks, 
+    filteredTasks, 
+    selectedTask: reduxSelectedTask, 
+    analytics,
+    filters,
+    sorting,
+    loading, 
+    error, 
+    createLoading, 
+    updateLoading, 
+    deleteLoading 
+  } = useSelector(state => state.tasks);
+  const { projects } = useSelector(state => state.project);
+
+  // Local component state
   const [selectedProject, setSelectedProject] = useState('');
   const [viewType, setViewType] = useState('features'); // 'features' or 'tasks'
   const [selectedFeature, setSelectedFeature] = useState('');
@@ -494,7 +542,7 @@ const TasksPage = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    assignedTo: 'You',
+    assignedTo: user?.displayName || 'You',
     dueDate: '',
     status: 'To Do',
     tags: [],
@@ -503,9 +551,11 @@ const TasksPage = () => {
   });
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { isOpen: isDetailsOpen, onOpen: onDetailsOpen, onClose: onDetailsClose } = useDisclosure();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const [taskToDelete, setTaskToDelete] = useState(null);
   const navigate = useNavigate();
   const toast = useToast();
-  const currentUser = 'You'; // This would come from authentication context
+  const currentUser = user?.displayName || 'You';
 
   // State for task details modal
   const [selectedTask, setSelectedTask] = useState(null);
@@ -521,74 +571,61 @@ const TasksPage = () => {
     featureId: '',
   });
 
-  // Extract all unique assignees from mock data
+  // Load tasks on component mount
+  useEffect(() => {
+    if (selectedProject) {
+      dispatch(fetchTasksByProject(selectedProject));
+    } else {
+      dispatch(fetchAllTasks());
+    }
+  }, [dispatch, selectedProject]);
+
+  // Clear errors when component unmounts
+  useEffect(() => {
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
+
+  // Extract all unique assignees from tasks
   const allAssignees = useMemo(() => {
     const assignees = new Set();
-    projects.forEach(project => {
-      project.features.forEach(feature => {
-        feature.tasks.forEach(task => {
-          assignees.add(task.assignedTo);
-        });
-      });
+    tasks.forEach(task => {
+      assignees.add(task.assignedTo);
     });
     return Array.from(assignees).sort();
-  }, [projects]);
+  }, [tasks]);
 
-  // Extract all unique tags from mock data
+  // Extract all unique tags from tasks
   const allTags = useMemo(() => {
     const tags = new Set();
-    projects.forEach(project => {
-      project.features.forEach(feature => {
-        feature.tasks.forEach(task => {
-          task.tags.forEach(tag => tags.add(tag));
+    tasks.forEach(task => {
+      if (task.tags) {
+        task.tags.forEach(tag => {
+          tags.add(tag);
         });
-      });
+      }
     });
     return Array.from(tags).sort();
-  }, [projects]);
+  }, [tasks]);
 
-  // Extract all unique status values from mock data (for both tasks and features)
+  // Extract all unique statuses from tasks
   const allStatuses = useMemo(() => {
     const statuses = new Set();
-    projects.forEach(project => {
-      project.features.forEach(feature => {
-        statuses.add(feature.status);
-        feature.tasks.forEach(task => {
-          statuses.add(task.status);
-        });
-      });
+    tasks.forEach(task => {
+      statuses.add(task.status);
     });
     return Array.from(statuses).sort();
-  }, [projects]);
+  }, [tasks]);
 
-  // Get all tasks from all projects/features or filter by selection
+  // Use filtered tasks from Redux instead of mock data
   const allTasks = useMemo(() => {
-    let tasks = [];
-    
-    projects.forEach(project => {
-      project.features.forEach(feature => {
-        feature.tasks.forEach(task => {
-          tasks.push({
-            ...task,
-            projectName: project.name,
-            featureName: feature.name,
-          });
-        });
-      });
-    });
-    
-    // Filter by selected project
-    if (selectedProject) {
-      tasks = tasks.filter(task => task.projectId === parseInt(selectedProject));
-    }
-    
-    // Filter by selected feature if viewing tasks
-    if (viewType === 'tasks' && selectedFeature) {
-      tasks = tasks.filter(task => task.featureId === parseInt(selectedFeature));
-    }
-    
-    return tasks;
-  }, [projects, selectedProject, selectedFeature, viewType]);
+    return filteredTasks.map(task => ({
+      ...task,
+      projectName: projects.find(p => p.id === task.projectId)?.name || 'Unknown Project',
+      featureName: task.featureName || 'Unknown Feature'
+    }));
+  }, [filteredTasks, projects]);
 
   // Get available features for selected project
   const availableFeatures = useMemo(() => {
@@ -651,36 +688,27 @@ const TasksPage = () => {
     };
   }, [userFeatures, viewType]);
 
-  // Calculate statistics
+  // Calculate statistics from Redux state
   const stats = useMemo(() => {
     if (viewType === 'features') {
-      const total = userFeatures.length;
-      const completed = userFeatures.filter(feature => feature.status === 'Done' || feature.status === 'Completed').length;
-      const inProgress = userFeatures.filter(feature => feature.status === 'In Progress').length;
-      const todo = userFeatures.filter(feature => feature.status === 'To Do').length;
-      const pending = userFeatures.filter(feature => feature.status === 'Pending').length;
-      
+      // Use project features statistics (this would need to be implemented in project slice)
       return {
-        total,
-        completed,
-        inProgress,
-        todo,
-        pending,
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        todo: 0,
+        pending: 0,
       };
     } else {
-      const total = userTasks.length;
-      const completed = userTasks.filter(task => task.status === 'Done').length;
-      const inProgress = userTasks.filter(task => task.status === 'In Progress').length;
-      const todo = userTasks.filter(task => task.status === 'To Do').length;
-      
+      // Use task analytics from Redux
       return {
-        total,
-        completed,
-        inProgress,
-        todo,
+        total: analytics.total || tasks.length,
+        completed: analytics.completed || tasks.filter(task => task.status === 'Done' || task.status === 'Completed').length,
+        inProgress: analytics.inProgress || tasks.filter(task => task.status === 'In Progress').length,
+        todo: analytics.todo || tasks.filter(task => task.status === 'To Do').length,
       };
     }
-  }, [userTasks, userFeatures, viewType]);
+  }, [tasks, analytics, viewType]);
 
   const handleTaskClick = (task, e) => {
     // Prevent navigation if user is dragging
@@ -754,7 +782,7 @@ const TasksPage = () => {
     }));
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = async () => {
     if (!formData.title.trim() || !formData.description.trim()) {
       toast({
         title: "Error",
@@ -766,10 +794,10 @@ const TasksPage = () => {
       return;
     }
 
-    if (!formData.projectId || !formData.featureId) {
+    if (!formData.projectId) {
       toast({
         title: "Error",
-        description: "Please select a project and feature",
+        description: "Please select a project",
         status: "error",
         duration: 3000,
         isClosable: true,
@@ -777,24 +805,49 @@ const TasksPage = () => {
       return;
     }
 
-    // In a real app, this would be sent to the backend
-    toast({
-      title: "Task Created",
-      description: `"${formData.title}" has been created successfully`,
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
+    try {
+      // Create task data
+      const taskData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        assignedTo: formData.assignedTo,
+        dueDate: formData.dueDate,
+        status: formData.status,
+        tags: formData.tags,
+        projectId: parseInt(formData.projectId),
+        featureId: formData.featureId ? parseInt(formData.featureId) : null,
+        priority: 'MEDIUM', // Default priority
+        createdBy: user?.uid || 'unknown'
+      };
 
-    resetForm();
-    onClose();
+      await dispatch(createTask(taskData)).unwrap();
+
+      toast({
+        title: "Task Created",
+        description: `"${formData.title}" has been created successfully`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+      resetForm();
+      onClose();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error || "Failed to create task",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
   const resetForm = () => {
     setFormData({
       title: '',
       description: '',
-      assignedTo: 'You',
+      assignedTo: user?.displayName || 'You',
       dueDate: '',
       status: 'To Do',
       tags: [],
@@ -855,7 +908,7 @@ const TasksPage = () => {
     }));
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editFormData.title.trim() || !editFormData.description.trim()) {
       toast({
         title: "Error",
@@ -867,17 +920,42 @@ const TasksPage = () => {
       return;
     }
 
-    // In a real app, this would update the task in the backend
-    toast({
-      title: "Task Updated",
-      description: `"${editFormData.title}" has been updated successfully`,
-      status: "success",
-      duration: 3000,
-      isClosable: true,
-    });
+    try {
+      const updateData = {
+        title: editFormData.title.trim(),
+        description: editFormData.description.trim(),
+        assignedTo: editFormData.assignedTo,
+        dueDate: editFormData.dueDate,
+        status: editFormData.status,
+        tags: editFormData.tags,
+        projectId: parseInt(editFormData.projectId),
+        featureId: editFormData.featureId ? parseInt(editFormData.featureId) : null,
+      };
 
-    setIsEditing(false);
-    handleDetailsClose();
+      await dispatch(updateTask({ 
+        id: selectedTask.id, 
+        taskData: updateData 
+      })).unwrap();
+
+      toast({
+        title: "Task Updated",
+        description: `"${editFormData.title}" has been updated successfully`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+      setIsEditing(false);
+      handleDetailsClose();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error || "Failed to update task",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
   const handleCancelEdit = () => {
@@ -892,6 +970,48 @@ const TasksPage = () => {
       projectId: '',
       featureId: '',
     });
+  };
+
+  const handleDeleteClick = (task) => {
+    setTaskToDelete(task);
+    onDeleteOpen();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!taskToDelete) return;
+
+    try {
+      await dispatch(deleteTask(taskToDelete.id)).unwrap();
+
+      toast({
+        title: "Task Deleted",
+        description: `"${taskToDelete.title}" has been deleted successfully`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+
+      onDeleteClose();
+      setTaskToDelete(null);
+      
+      // Close details modal if deleted task was selected
+      if (selectedTask && selectedTask.id === taskToDelete.id) {
+        handleDetailsClose();
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error || "Failed to delete task",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    onDeleteClose();
+    setTaskToDelete(null);
   };
 
   const FeatureCard = ({ feature }) => {
@@ -997,6 +1117,7 @@ const TasksPage = () => {
       border="1px"
       borderColor="gray.700"
       boxShadow="md"
+      role="group"
       _hover={{ 
         boxShadow: 'xl', 
         transform: 'translateY(-2px)',
@@ -1068,6 +1189,21 @@ const TasksPage = () => {
             </Text>
           </HStack>
         </HStack>
+        <Button
+          size="xs"
+          colorScheme="red"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDeleteClick(task);
+          }}
+          opacity={0}
+          _hover={{ opacity: 1 }}
+          _groupHover={{ opacity: 1 }}
+          transition="opacity 0.2s"
+        >
+          Delete
+        </Button>
       </Flex>
     </Box>
   );
@@ -1187,6 +1323,22 @@ const TasksPage = () => {
   );
   return (
     <Box px={8} py={6} bg="gray.900" minH="100vh">
+      {/* Loading State */}
+      {loading && (
+        <Flex justify="center" align="center" h="200px">
+          <Spinner size="xl" color="blue.500" />
+        </Flex>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <Alert status="error" mb={6} bg="red.900" borderColor="red.600">
+          <AlertIcon />
+          <AlertTitle>Error loading tasks!</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
       <Flex justify="space-between" align="center" mb={8}>
         <VStack align="start" spacing={1}>
@@ -1275,6 +1427,77 @@ const TasksPage = () => {
           Filters
         </Heading>
         <Flex gap={4} wrap="wrap" align="end">
+          {/* Search Filter */}
+          <FormControl maxW="300px">
+            <FormLabel color="gray.300" fontSize="sm">
+              Search
+            </FormLabel>
+            <InputGroup>
+              <InputLeftElement pointerEvents="none">
+                <SearchIcon color="gray.500" />
+              </InputLeftElement>
+              <Input
+                placeholder="Search tasks..."
+                value={filters.search}
+                onChange={(e) => dispatch(setFilters({ search: e.target.value }))}
+                bg="gray.700"
+                border="1px"
+                borderColor="gray.600"
+                color="white"
+                _hover={{ borderColor: "gray.500" }}
+                _focus={{ borderColor: "blue.500" }}
+              />
+            </InputGroup>
+          </FormControl>
+
+          {/* Status Filter */}
+          <FormControl maxW="200px">
+            <FormLabel color="gray.300" fontSize="sm">
+              Status
+            </FormLabel>
+            <Select
+              placeholder="All Statuses"
+              value={filters.status}
+              onChange={(e) => dispatch(setFilters({ status: e.target.value }))}
+              bg="gray.700"
+              border="1px"
+              borderColor="gray.600"
+              color="white"
+              _hover={{ borderColor: "gray.500" }}
+              _focus={{ borderColor: "blue.500" }}
+            >
+              {allStatuses.map(status => (
+                <option key={status} value={status} style={{ backgroundColor: '#2D3748' }}>
+                  {status}
+                </option>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Assignee Filter */}
+          <FormControl maxW="200px">
+            <FormLabel color="gray.300" fontSize="sm">
+              Assignee
+            </FormLabel>
+            <Select
+              placeholder="All Assignees"
+              value={filters.assignedTo}
+              onChange={(e) => dispatch(setFilters({ assignedTo: e.target.value }))}
+              bg="gray.700"
+              border="1px"
+              borderColor="gray.600"
+              color="white"
+              _hover={{ borderColor: "gray.500" }}
+              _focus={{ borderColor: "blue.500" }}
+            >
+              {allAssignees.map(assignee => (
+                <option key={assignee} value={assignee} style={{ backgroundColor: '#2D3748' }}>
+                  {assignee}
+                </option>
+              ))}
+            </Select>
+          </FormControl>
+
           {/* Project Filter */}
           <FormControl maxW="250px">
             <FormLabel color="gray.300" fontSize="sm">
@@ -1282,8 +1505,11 @@ const TasksPage = () => {
             </FormLabel>
             <Select
               placeholder="All Projects"
-              value={selectedProject}
-              onChange={handleProjectChange}
+              value={filters.projectId}
+              onChange={(e) => {
+                dispatch(setFilters({ projectId: e.target.value }));
+                setSelectedProject(e.target.value);
+              }}
               bg="gray.700"
               border="1px"
               borderColor="gray.600"
@@ -1354,7 +1580,11 @@ const TasksPage = () => {
           <Button
             variant="outline"
             colorScheme="gray"
-            onClick={clearFilters}
+            onClick={() => {
+              dispatch(clearFilters());
+              setSelectedProject('');
+              setSelectedFeature('');
+            }}
             _hover={{ bg: "gray.700" }}
           >
             Clear Filters
@@ -1429,15 +1659,25 @@ const TasksPage = () => {
                 <Text>{isEditing ? 'Edit Task' : 'Task Details'}</Text>
               </HStack>
               {selectedTask && selectedTask.assignedTo === currentUser && !isEditing && (
-                <Button
-                  size="sm"
-                  colorScheme="blue"
-                  variant="outline"
-                  leftIcon={<EditIcon />}
-                  onClick={handleEditClick}
-                >
-                  Edit
-                </Button>
+                <HStack spacing={2}>
+                  <Button
+                    size="sm"
+                    colorScheme="blue"
+                    variant="outline"
+                    leftIcon={<EditIcon />}
+                    onClick={handleEditClick}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    colorScheme="red"
+                    variant="outline"
+                    onClick={() => handleDeleteClick(selectedTask)}
+                  >
+                    Delete
+                  </Button>
+                </HStack>
               )}
             </HStack>
           </ModalHeader>
@@ -1959,12 +2199,47 @@ const TasksPage = () => {
               leftIcon={<AddIcon />}
               _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
               transition="all 0.2s"
+              isLoading={createLoading}
+              loadingText="Creating..."
             >
               Create Task
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isDeleteOpen}
+        onClose={handleDeleteCancel}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent bg="gray.800" borderColor="gray.600">
+            <AlertDialogHeader fontSize="lg" fontWeight="bold" color="white">
+              Delete Task
+            </AlertDialogHeader>
+
+            <AlertDialogBody color="gray.300">
+              Are you sure you want to delete "{taskToDelete?.title}"? This action cannot be undone.
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={React.createRef()} onClick={handleDeleteCancel}>
+                Cancel
+              </Button>
+              <Button 
+                colorScheme="red" 
+                onClick={handleDeleteConfirm} 
+                ml={3}
+                isLoading={deleteLoading}
+                loadingText="Deleting..."
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
   );
 };

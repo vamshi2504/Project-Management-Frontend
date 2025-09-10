@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -69,132 +69,9 @@ import {
   FaBullseye,
   FaListUl,
 } from 'react-icons/fa';
-import ProjectCalendar from '../components/ui/ProjectCalendar';
 
-// Mock data for story details
-const mockStoryData = {
-  id: 1,
-  title: 'As a customer, I want to filter products so I can find what I need quickly',
-  description: 'Users should be able to filter products by category, price range, brand, ratings, and availability. Filters should be combinable and results should update in real-time.',
-  status: 'In Progress',
-  priority: 'High',
-  startDate: '2025-06-01',
-  dueDate: '2025-08-15',
-  assignedTeam: ['You', 'Sarah Wilson', 'Tom Brown', 'Alice Davis'],
-  project: 'E-commerce Platform',
-  progress: 60,
-  estimatedHours: 80,
-  loggedHours: 48,
-  epic: 'Product Discovery Enhancement',
-  features: [
-    {
-      id: 1,
-      name: 'Filter Panel Component',
-      description: 'Create a reusable filter panel with multiple filter options',
-      status: 'Done',
-      progress: 100,
-      assignee: 'Sarah Wilson',
-      estimatedHours: 16,
-      loggedHours: 18,
-      dueDate: '2025-07-10',
-      priority: 'High',
-    },
-    {
-      id: 2,
-      name: 'Real-time Filter Logic',
-      description: 'Implement real-time filtering with debounced search',
-      status: 'In Progress',
-      progress: 75,
-      assignee: 'Tom Brown',
-      estimatedHours: 24,
-      loggedHours: 18,
-      dueDate: '2025-07-20',
-      priority: 'High',
-    },
-    {
-      id: 3,
-      name: 'Filter State Management',
-      description: 'Manage filter state across page navigation and sessions',
-      status: 'To Do',
-      progress: 0,
-      assignee: 'Alice Davis',
-      estimatedHours: 20,
-      loggedHours: 0,
-      dueDate: '2025-08-05',
-      priority: 'Medium',
-    },
-    {
-      id: 4,
-      name: 'Mobile Filter Interface',
-      description: 'Design and implement mobile-responsive filter UI',
-      status: 'To Do',
-      progress: 0,
-      assignee: 'You',
-      estimatedHours: 20,
-      loggedHours: 0,
-      dueDate: '2025-08-10',
-      priority: 'Medium',
-    },
-  ],
-  userRequirements: [
-    {
-      id: 1,
-      requirement: 'Filter panel must be easily accessible on product pages',
-      priority: 'High',
-      status: 'Satisfied',
-      validationCriteria: 'Filter panel visible within 3 seconds of page load',
-    },
-    {
-      id: 2,
-      requirement: 'Users can filter by category, price, brand, rating',
-      priority: 'High',
-      status: 'In Progress',
-      validationCriteria: 'All filter types functional with immediate visual feedback',
-    },
-    {
-      id: 3,
-      requirement: 'Multiple filters can be applied simultaneously',
-      priority: 'High',
-      status: 'In Progress',
-      validationCriteria: 'Up to 10 filters can be active without performance issues',
-    },
-    {
-      id: 4,
-      requirement: 'Filter results update without page reload',
-      priority: 'High',
-      status: 'In Progress',
-      validationCriteria: 'Results update within 500ms of filter change',
-    },
-    {
-      id: 5,
-      requirement: 'Applied filters are clearly visible to users',
-      priority: 'Medium',
-      status: 'To Do',
-      validationCriteria: 'Active filters shown as removable tags above results',
-    },
-    {
-      id: 6,
-      requirement: 'Users can easily clear individual or all filters',
-      priority: 'Medium',
-      status: 'To Do',
-      validationCriteria: 'Clear individual and clear all buttons are prominently displayed',
-    },
-    {
-      id: 7,
-      requirement: 'Filter state persists during browsing session',
-      priority: 'Low',
-      status: 'To Do',
-      validationCriteria: 'Filters maintained when navigating between product pages',
-    },
-    {
-      id: 8,
-      requirement: 'Mobile-friendly filter interface',
-      priority: 'Medium',
-      status: 'To Do',
-      validationCriteria: 'Filter interface usable on screens 320px and larger',
-    },
-  ],
-};
+
+import { fetchStoryById } from '../api/stories';
 
 const getStatusColor = (status) => {
   switch (status) {
@@ -233,10 +110,11 @@ const formatDate = (dateString) => {
 };
 
 const StoryDetailsPage = () => {
+  // Board type filter state
+  const [boardType, setBoardType] = useState('features');
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-
   // Using consistent dark theme
   const bgColor = 'gray.900';
   const cardBg = 'gray.800';
@@ -245,15 +123,72 @@ const StoryDetailsPage = () => {
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
   const { isOpen: isFeatureOpen, onOpen: onFeatureOpen, onClose: onFeatureClose } = useDisclosure();
 
-  const [story, setStory] = useState(mockStoryData);
+  const [story, setStory] = useState(null);
   const [editFormData, setEditFormData] = useState({
-    title: story.title,
-    description: story.description,
-    status: story.status,
-    priority: story.priority,
-    dueDate: story.dueDate,
+    title: '',
+    description: '',
+    status: '',
+    priority: '',
+    dueDate: '',
   });
+  // Normalize backend status/priority to frontend expected values
+  const normalizeStatus = (status) => {
+    if (!status) return '';
+    switch (status.toUpperCase()) {
+      case 'TODO':
+        return 'To Do';
+      case 'INPROGRESS':
+      case 'IN_PROGRESS':
+        return 'In Progress';
+      case 'DONE':
+        return 'Done';
+      case 'SATISFIED':
+        return 'Satisfied';
+      default:
+        // Try to prettify any other status
+        return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+    }
+  };
 
+  const normalizePriority = (priority) => {
+    if (!priority) return '';
+    switch (priority.toUpperCase()) {
+      case 'HIGH':
+        return 'High';
+      case 'MEDIUM':
+        return 'Medium';
+      case 'LOW':
+        return 'Low';
+      default:
+        return priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase();
+    }
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await fetchStoryById(id);
+        // Normalize status and priority
+        const normalizedData = {
+          ...data,
+          status: normalizeStatus(data.status),
+          priority: normalizePriority(data.priority),
+        };
+        setStory(normalizedData);
+        setEditFormData({
+          title: normalizedData.title || '',
+          description: normalizedData.description || '',
+          status: normalizedData.status || '',
+          priority: normalizedData.priority || '',
+          dueDate: normalizedData.dueDate || '',
+        });
+      } catch (err) {
+        setStory(null);
+      }
+    };
+    fetchData();
+  }, [id]);
+  console.log('Story Details:', story);
   const [featureFormData, setFeatureFormData] = useState({
     name: '',
     description: '',
@@ -290,27 +225,29 @@ const StoryDetailsPage = () => {
 
   const [newComment, setNewComment] = useState('');
 
-  // Calculate story statistics
-  const stats = useMemo(() => {
-    const totalFeatures = story.features.length;
-    const completedFeatures = story.features.filter(feature => feature.status === 'Done').length;
-    const inProgressFeatures = story.features.filter(feature => feature.status === 'In Progress').length;
-    const todoFeatures = story.features.filter(feature => feature.status === 'To Do').length;
-    
-    const totalRequirements = story.userRequirements.length;
-    const satisfiedRequirements = story.userRequirements.filter(req => req.status === 'Satisfied').length;
-    const inProgressRequirements = story.userRequirements.filter(req => req.status === 'In Progress').length;
-    
-    return { 
-      totalFeatures, 
-      completedFeatures, 
-      inProgressFeatures, 
-      todoFeatures,
-      totalRequirements,
-      satisfiedRequirements,
-      inProgressRequirements
+  // Fetch features and tasks under this story
+  const [features, setFeatures] = useState([]);
+  const [tasks, setTasks] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!story?._id) return;
+      // Fetch all features and filter by storyId/featureId
+      try {
+        const allFeatures = await import('../api/features').then(m => m.fetchAllFeatures());
+        setFeatures(allFeatures.filter(f => f.storyId === story._id || f.story === story._id));
+      } catch (e) {
+        setFeatures([]);
+      }
+      try {
+        const allTasks = await import('../api/tasks').then(m => m.fetchAllTasks());
+        setTasks(allTasks.filter(t => t.storyId === story._id || t.story === story._id));
+      } catch (e) {
+        setTasks([]);
+      }
     };
-  }, [story]);
+    fetchData();
+  }, [story?._id]);
 
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
@@ -504,10 +441,35 @@ const StoryDetailsPage = () => {
     </Card>
   );
 
+
   return (
     <Box bg={bgColor} minH="100vh" p={{ base: 4, md: 6 }}>
       <VStack align="stretch" spacing={6} maxW="1400px" mx="auto">
-        {/* Header */}
+        {/* Modern Gradient Banner Heading */}
+        <Box
+          w="100%"
+          borderRadius="2xl"
+          p={{ base: 6, md: 10 }}
+          mb={2}
+          bgGradient="linear(to-r, purple.500, blue.400, teal.400, green.400, orange.300)"
+          boxShadow="lg"
+          display="flex"
+          alignItems="center"
+        >
+          <Text fontSize={{ base: '2xl', md: '3xl', lg: '4xl' }} fontWeight="extrabold" color="white" mr={4}>
+            🚀
+          </Text>
+          <Box>
+            <Text fontSize={{ base: 'xl', md: '2xl', lg: '3xl' }} fontWeight="extrabold" color="white" lineHeight="1.1">
+              {story ? story.title : 'Story Details'}
+            </Text>
+            <Text fontSize={{ base: 'md', md: 'lg' }} color="whiteAlpha.800" fontWeight="medium">
+              Feature Details & Task Management
+            </Text>
+          </Box>
+        </Box>
+
+        {/* Header Actions */}
         <Flex 
           justify="space-between" 
           align={{ base: "start", md: "center" }}
@@ -545,15 +507,8 @@ const StoryDetailsPage = () => {
                   color="gray.400"
                   noOfLines={1}
                 >
-                  {story.project} • User Story #{story.id}
+                  {story ? `${story.project || ''} • User Story #${story.id || ''}` : ''}
                 </Text>
-                <Heading 
-                  size={{ base: "md", md: "lg" }} 
-                  color="white" 
-                  noOfLines={2}
-                >
-                  {story.title}
-                </Heading>
               </VStack>
             </HStack>
           </HStack>
@@ -611,24 +566,24 @@ const StoryDetailsPage = () => {
                 justify={{ base: "start", md: "end" }}
               >
                 <Badge 
-                  colorScheme={getStatusColor(story.status)}
+                  colorScheme={getStatusColor(story?.status)}
                   variant="subtle"
                   borderRadius="full"
                   fontSize="sm"
                   px={4}
                   py={2}
                 >
-                  {story.status}
+                  {story?.status || ''}
                 </Badge>
                 <Badge 
-                  colorScheme={getPriorityColor(story.priority)}
+                  colorScheme={getPriorityColor(story?.priority)}
                   variant="subtle"
                   borderRadius="full"
                   fontSize="sm"
                   px={4}
                   py={2}
                 >
-                  {story.priority} Priority
+                  {story?.priority ? `${story.priority} Priority` : ''}
                 </Badge>
               </HStack>
             </Flex>
@@ -641,7 +596,7 @@ const StoryDetailsPage = () => {
                   Description
                 </Text>
                 <Text color="gray.400" fontSize="sm" lineHeight="1.6">
-                  {story.description}
+                  {story?.description || ''}
                 </Text>
               </Box>
 
@@ -652,22 +607,22 @@ const StoryDetailsPage = () => {
                     Progress
                   </Text>
                   <Text color="white" fontSize="lg" fontWeight="bold">
-                    {story.progress}%
+                    {story?.progress != null ? `${story.progress}%` : ''}
                   </Text>
                 </Flex>
                 <Progress 
-                  colorScheme={getStatusColor(story.status)} 
-                  value={story.progress} 
+                  colorScheme={getStatusColor(story?.status)} 
+                  value={story?.progress || 0} 
                   borderRadius="full"
                   size="lg"
                   bg="gray.700"
                 />
                 <Flex justify="space-between" mt={2}>
                   <Text color="gray.500" fontSize="sm">
-                    {stats.completedFeatures} of {stats.totalFeatures} features completed
+                    {/* removed stats.completedFeatures of stats.totalFeatures features completed */}
                   </Text>
                   <Text color="gray.500" fontSize="sm">
-                    {story.loggedHours}h / {story.estimatedHours}h logged
+                    {story?.loggedHours != null && story?.estimatedHours != null ? `${story.loggedHours}h / ${story.estimatedHours}h logged` : ''}
                   </Text>
                 </Flex>
               </Box>
@@ -682,19 +637,19 @@ const StoryDetailsPage = () => {
                     <HStack spacing={3}>
                       <Icon as={CalendarIcon} color="green.400" boxSize={4} />
                       <Text color="gray.400" fontSize="sm">
-                        Started: {formatDate(story.startDate)}
+                        Started: {story?.startDate ? formatDate(story.startDate) : 'N/A'}
                       </Text>
                     </HStack>
                     <HStack spacing={3}>
                       <Icon as={FaCalendarAlt} color="orange.400" boxSize={4} />
                       <Text color="gray.400" fontSize="sm">
-                        Due: {formatDate(story.dueDate)}
+                        Due: {story?.dueDate ? formatDate(story.dueDate) : 'N/A'}
                       </Text>
                     </HStack>
                     <HStack spacing={3}>
                       <Icon as={FaProjectDiagram} color="purple.400" boxSize={4} />
                       <Text color="gray.400" fontSize="sm">
-                        Epic: {story.epic}
+                        Epic: {story?.epic || 'N/A'}
                       </Text>
                     </HStack>
                   </VStack>
@@ -705,26 +660,30 @@ const StoryDetailsPage = () => {
                     Team Members
                   </Text>
                   <Flex wrap="wrap" gap={2}>
-                    {story.assignedTeam.map((member, index) => (
-                      <HStack 
-                        key={index} 
-                        spacing={2} 
-                        bg="gray.700" 
-                        px={3} 
-                        py={1} 
-                        borderRadius="full"
-                        minW={0}
-                      >
-                        <Avatar name={member} size="xs" />
-                        <Text 
-                          color="white" 
-                          fontSize="sm"
-                          noOfLines={1}
+                    {Array.isArray(story?.assignedTeam) && story.assignedTeam.length > 0 ? (
+                      story.assignedTeam.map((member, index) => (
+                        <HStack 
+                          key={index} 
+                          spacing={2} 
+                          bg="gray.700" 
+                          px={3} 
+                          py={1} 
+                          borderRadius="full"
+                          minW={0}
                         >
-                          {member}
-                        </Text>
-                      </HStack>
-                    ))}
+                          <Avatar name={member} size="xs" />
+                          <Text 
+                            color="white" 
+                            fontSize="sm"
+                            noOfLines={1}
+                          >
+                            {member}
+                          </Text>
+                        </HStack>
+                      ))
+                    ) : (
+                      <Text color="gray.500" fontSize="sm">No team members assigned</Text>
+                    )}
                   </Flex>
                 </Box>
               </SimpleGrid>
@@ -732,293 +691,197 @@ const StoryDetailsPage = () => {
           </CardBody>
         </Card>
 
-        {/* Statistics */}
-        <SimpleGrid columns={{ base: 2, md: 4 }} spacing={6} mb={8}>
-          <Stat bg={cardBg} p={4} borderRadius="xl" border="1px" borderColor={borderColor}>
-            <StatLabel color="gray.400">Total Features</StatLabel>
-            <StatNumber color="white">{stats.totalFeatures}</StatNumber>
-          </Stat>
-          <Stat bg={cardBg} p={4} borderRadius="xl" border="1px" borderColor={borderColor}>
-            <StatLabel color="gray.400">Completed</StatLabel>
-            <StatNumber color="green.400">{stats.completedFeatures}</StatNumber>
-          </Stat>
-          <Stat bg={cardBg} p={4} borderRadius="xl" border="1px" borderColor={borderColor}>
-            <StatLabel color="gray.400">In Progress</StatLabel>
-            <StatNumber color="blue.400">{stats.inProgressFeatures}</StatNumber>
-          </Stat>
-          <Stat bg={cardBg} p={4} borderRadius="xl" border="1px" borderColor={borderColor}>
-            <StatLabel color="gray.400">To Do</StatLabel>
-            <StatNumber color="gray.400">{stats.todoFeatures}</StatNumber>
-          </Stat>
-        </SimpleGrid>
 
-        <Flex gap={6} align="start" direction={{ base: "column", lg: "row" }}>
-          {/* Main Content */}
-          <VStack flex={2} align="stretch" spacing={6}>
-            {/* Features Section */}
-            <Card bg={cardBg} border="1px" borderColor={borderColor}>
-              <CardHeader>
-                <HStack 
-                  justify="space-between" 
-                  align="center"
-                  flexWrap={{ base: "wrap", sm: "nowrap" }}
-                  gap={3}
-                >
-                  <HStack spacing={3}>
-                    <Icon as={FaLightbulb} color="blue.400" boxSize={5} />
-                    <Heading size={{ base: "sm", md: "md" }} color="white">
-                      Features ({stats.totalFeatures})
-                    </Heading>
+
+
+
+
+        {/* Board Layout for Features or Tasks - Filtered */}
+        <Box w="100%" mb={8}>
+          <Flex mb={4} align="center" gap={4}>
+            <Text fontWeight="bold" color="white" fontSize="xl">Board Type:</Text>
+            <Select
+              value={boardType}
+              onChange={e => setBoardType(e.target.value)}
+              maxW="200px"
+              bg="gray.800"
+              color="white"
+              borderColor="gray.600"
+              _hover={{ borderColor: 'blue.400' }}
+              _focus={{ borderColor: 'blue.400' }}
+            >
+              <option value="features" style={{ backgroundColor: '#2D3748' }}>Features</option>
+              <option value="tasks" style={{ backgroundColor: '#2D3748' }}>Tasks</option>
+            </Select>
+          </Flex>
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
+            {['To Do', 'In Progress', 'Done'].map((status, idx) => {
+              const statusColors = [
+                { dot: 'gray.400', label: 'To Do', countBg: 'gray.700', countColor: 'gray.200' },
+                { dot: 'blue.400', label: 'In Progress', countBg: 'gray.700', countColor: 'blue.200' },
+                { dot: 'green.400', label: 'Done', countBg: 'gray.700', countColor: 'green.200' }
+              ];
+              return (
+                <Box key={status} bg={cardBg} borderRadius="2xl" border="1px" borderColor={borderColor} p={6} minH="320px">
+                  <HStack mb={2} spacing={3} align="center">
+                    <Box boxSize={4} borderRadius="full" bg={statusColors[idx].dot} />
+                    <Text fontWeight="extrabold" color="white" fontSize="2xl">{status}</Text>
+                    <Box ml="auto" px={3} py={1} borderRadius="full" bg={statusColors[idx].countBg} color={statusColors[idx].countColor} fontWeight="bold" fontSize="md">
+                      {boardType === 'features'
+                        ? features.filter(f => f.status === status).length
+                        : tasks.filter(t => t.status === status).length}
+                    </Box>
                   </HStack>
-                  <Button
-                    size="sm"
-                    leftIcon={<AddIcon />}
-                    colorScheme="blue"
-                    variant="outline"
-                    onClick={onFeatureOpen}
-                    color="gray.300"
-                    borderColor="gray.600"
-                    _hover={{ bg: "blue.600", borderColor: "blue.600", color: "white" }}
-                    flexShrink={0}
-                  >
-                    Add Feature
-                  </Button>
-                </HStack>
-              </CardHeader>
-              <CardBody>
-                <VStack spacing={4} align="stretch">
-                  {story.features.map((feature) => (
-                    <FeatureCard key={feature.id} feature={feature} />
-                  ))}
-                </VStack>
-              </CardBody>
-            </Card>
+                  <Flex direction="column" gap={6} mt={4}>
+                    {boardType === 'features' ? (
+                      <Box border="2px dashed" borderColor={statusColors[idx].dot} borderRadius="xl" p={4} minH="100px">
+                        {features.filter(f => f.status === status).length === 0 ? (
+                          <Text color={statusColors[idx].dot} fontWeight="medium" textAlign="center">
+                            No {status.toLowerCase()} features
+                          </Text>
+                        ) : (
+                          features.filter(f => f.status === status).map((feature) => (
+                            <FeatureCard key={feature._id || feature.id} feature={feature} />
+                          ))
+                        )}
+                      </Box>
+                    ) : (
+                      <Box border="2px dashed" borderColor={statusColors[idx].dot} borderRadius="xl" p={4} minH="100px">
+                        {tasks.filter(t => t.status === status).length === 0 ? (
+                          <Text color={statusColors[idx].dot} fontWeight="medium" textAlign="center">
+                            No {status.toLowerCase()} tasks
+                          </Text>
+                        ) : (
+                          tasks.filter(t => t.status === status).map((task) => (
+                            <Box key={task._id || task.id} bg="gray.700" p={4} borderRadius="xl" border="1px" borderColor="gray.600" mb={2}>
+                              <VStack align="stretch" spacing={2}>
+                                <Flex justify="space-between" align="center">
+                                  <HStack spacing={3}>
+                                    <Badge colorScheme={getPriorityColor(task.priority)} variant="subtle" borderRadius="full" fontSize="xs" px={2}>
+                                      {task.priority}
+                                    </Badge>
+                                    <Badge colorScheme={getStatusColor(task.status)} variant="subtle" borderRadius="full" fontSize="xs" px={2}>
+                                      {task.status}
+                                    </Badge>
+                                  </HStack>
+                                  <Text color="gray.400" fontSize="xs">Due: {task.dueDate ? formatDate(task.dueDate) : 'N/A'}</Text>
+                                </Flex>
+                                <Heading size="sm" color="white">{task.title}</Heading>
+                                <Text color="gray.400" fontSize="sm">{task.description}</Text>
+                              </VStack>
+                            </Box>
+                          ))
+                        )}
+                      </Box>
+                    )}
+                  </Flex>
+                </Box>
+              );
+            })}
+          </SimpleGrid>
+        </Box>
+  // Board type filter state
+  const [boardType, setBoardType] = useState('features');
 
-            {/* User Requirements Section */}
-            <Card bg={cardBg} border="1px" borderColor={borderColor}>
-              <CardHeader>
-                <HStack spacing={3} flexWrap="wrap">
-                  <Icon as={FaBullseye} color="green.400" boxSize={5} />
-                  <Heading size={{ base: "sm", md: "md" }} color="white">
-                    User Requirements ({story.userRequirements.length})
+        {/* Comments Section - Full Width Under Board */}
+        <Box w="100%">
+          <Card bg={cardBg} border="1px" borderColor={borderColor}>
+            <CardBody>
+              <VStack spacing={4} align="stretch">
+                <HStack spacing={3} mb={2}>
+                  <Icon as={FaComment} color="purple.400" boxSize={5} />
+                  <Heading size="sm" color="white">
+                    Comments ({comments.length})
                   </Heading>
                 </HStack>
-              </CardHeader>
-              <CardBody>
-                <VStack spacing={4} align="stretch">
-                  {story.userRequirements.map((requirement) => (
+                {/* Add Comment */}
+                <VStack spacing={2} w="full">
+                  <Textarea
+                    placeholder="Add a comment..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    bg="gray.700"
+                    border="1px"
+                    borderColor="gray.600"
+                    color="white"
+                    _hover={{ borderColor: "gray.500" }}
+                    _focus={{ borderColor: "purple.500", bg: "gray.700" }}
+                    rows={3}
+                    resize="vertical"
+                  />
+                  <Flex justify="flex-end" w="full">
+                    <Button
+                      colorScheme="purple"
+                      size="sm"
+                      onClick={handleAddComment}
+                      isDisabled={!newComment.trim()}
+                      leftIcon={<AddIcon />}
+                    >
+                      Add Comment
+                    </Button>
+                  </Flex>
+                </VStack>
+                <Divider borderColor="gray.600" />
+                {/* Comments List */}
+                <VStack spacing={4} w="full" maxH="400px" overflowY="auto">
+                  {comments.map((comment) => (
                     <Box
-                      key={requirement.id}
-                      bg="gray.700"
+                      key={comment.id}
+                      w="full"
                       p={4}
                       borderRadius="xl"
+                      bg="gray.700"
                       border="1px"
                       borderColor="gray.600"
                     >
-                      <VStack align="stretch" spacing={3}>
-                        <Flex 
-                          justify="space-between" 
-                          align="start"
-                          direction={{ base: "column", sm: "row" }}
-                          gap={3}
-                        >
-                          <HStack spacing={3} flex={1} minW={0}>
-                            <Icon 
-                              as={requirement.status === 'Satisfied' ? FaCheckCircle : FaListUl} 
-                              color={requirement.status === 'Satisfied' ? 'green.400' : 'gray.400'}
-                              boxSize={4}
-                              mt={0.5}
-                              flexShrink={0}
-                            />
+                      <HStack justify="space-between" align="start" mb={3}>
+                        <HStack spacing={3}>
+                          <Avatar 
+                            name={comment.author} 
+                            size="sm"
+                            bg="purple.500"
+                          />
+                          <VStack align="start" spacing={0}>
                             <Text 
-                              color="gray.300" 
+                              color="white" 
                               fontSize="sm" 
-                              lineHeight="1.6"
-                              minW={0}
+                              fontWeight="semibold"
                             >
-                              {requirement.requirement}
+                              {comment.author}
                             </Text>
-                          </HStack>
-                          <HStack 
-                            spacing={2}
-                            flexWrap="wrap"
-                            justify={{ base: "start", sm: "end" }}
-                          >
-                            <Badge 
-                              colorScheme={getStatusColor(requirement.status)}
-                              variant="subtle"
-                              borderRadius="full"
+                            <Text 
+                              color="gray.400" 
                               fontSize="xs"
-                              px={2}
                             >
-                              {requirement.status}
-                            </Badge>
-                            <Badge 
-                              colorScheme={getPriorityColor(requirement.priority)}
-                              variant="outline"
-                              borderRadius="full"
-                              fontSize="xs"
-                              px={2}
-                            >
-                              {requirement.priority}
-                            </Badge>
-                          </HStack>
-                        </Flex>
-                        <Box pl={{ base: 7, sm: 7 }}>
-                          <Text color="gray.500" fontSize="xs" fontWeight="medium">
-                            Validation: {requirement.validationCriteria}
-                          </Text>
-                        </Box>
-                      </VStack>
+                              {formatCommentDate(comment.timestamp)}
+                            </Text>
+                          </VStack>
+                        </HStack>
+                      </HStack>
+                      <Text 
+                        color="gray.300" 
+                        fontSize="sm" 
+                        lineHeight="1.6"
+                        pl={12}
+                      >
+                        {comment.content}
+                      </Text>
                     </Box>
                   ))}
+                  {comments.length === 0 && (
+                    <Box
+                      textAlign="center"
+                      py={8}
+                      color="gray.500"
+                    >
+                      <Text>No comments yet. Be the first to comment!</Text>
+                    </Box>
+                  )}
                 </VStack>
-              </CardBody>
-            </Card>
-          </VStack>
-
-          {/* Sidebar */}
-          <VStack flex={1} align="stretch" spacing={6} minW={{ base: "full", lg: "300px" }}>
-            {/* Project Calendar */}
-            <ProjectCalendar storyData={story} />
-
-            {/* Requirements Stats */}
-            <Card bg={cardBg} borderColor={borderColor} border="1px">
-              <CardBody>
-                <VStack spacing={4}>
-                  <Heading size="sm" color="gray.300">Requirements Status</Heading>
-                  
-                  <SimpleGrid columns={{ base: 3, lg: 1 }} spacing={3} w="full">
-                    <Stat textAlign="center" bg="gray.700" p={3} borderRadius="lg">
-                      <StatLabel fontSize="xs" color="gray.400">Total</StatLabel>
-                      <StatNumber fontSize="md" color="white">
-                        {stats.totalRequirements}
-                      </StatNumber>
-                    </Stat>
-                    
-                    <Stat textAlign="center" bg="gray.700" p={3} borderRadius="lg">
-                      <StatLabel fontSize="xs" color="gray.400">Satisfied</StatLabel>
-                      <StatNumber fontSize="md" color="green.400">
-                        {stats.satisfiedRequirements}
-                      </StatNumber>
-                    </Stat>
-                    
-                    <Stat textAlign="center" bg="gray.700" p={3} borderRadius="lg">
-                      <StatLabel fontSize="xs" color="gray.400">In Progress</StatLabel>
-                      <StatNumber fontSize="md" color="blue.400">
-                        {stats.inProgressRequirements}
-                      </StatNumber>
-                    </Stat>
-                  </SimpleGrid>
-                </VStack>
-              </CardBody>
-            </Card>
-
-            {/* Comments Section */}
-            <Card bg={cardBg} border="1px" borderColor={borderColor}>
-              <CardBody>
-                <VStack spacing={4}>
-                  <HStack justify="space-between" align="center">
-                    <HStack spacing={3}>
-                      <Icon as={FaComment} color="purple.400" boxSize={5} />
-                      <Heading size="sm" color="white">
-                        Comments ({comments.length})
-                      </Heading>
-                    </HStack>
-                  </HStack>
-                  
-                  {/* Add Comment */}
-                  <VStack spacing={2} w="full">
-                    <Textarea
-                      placeholder="Add a comment..."
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      bg="gray.700"
-                      border="1px"
-                      borderColor="gray.600"
-                      color="white"
-                      _hover={{ borderColor: "gray.500" }}
-                      _focus={{ borderColor: "purple.500", bg: "gray.700" }}
-                      rows={3}
-                      resize="vertical"
-                    />
-                    <Flex justify="flex-end" w="full">
-                      <Button
-                        colorScheme="purple"
-                        size="sm"
-                        onClick={handleAddComment}
-                        isDisabled={!newComment.trim()}
-                        leftIcon={<AddIcon />}
-                      >
-                        Add Comment
-                      </Button>
-                    </Flex>
-                  </VStack>
-
-                  <Divider borderColor="gray.600" />
-
-                  {/* Comments List */}
-                  <VStack spacing={4} w="full" maxH="400px" overflowY="auto">
-                    {comments.map((comment) => (
-                      <Box
-                        key={comment.id}
-                        w="full"
-                        p={4}
-                        borderRadius="xl"
-                        bg="gray.700"
-                        border="1px"
-                        borderColor="gray.600"
-                      >
-                        <HStack justify="space-between" align="start" mb={3}>
-                          <HStack spacing={3}>
-                            <Avatar 
-                              name={comment.author} 
-                              size="sm"
-                              bg="purple.500"
-                            />
-                            <VStack align="start" spacing={0}>
-                              <Text 
-                                color="white" 
-                                fontSize="sm" 
-                                fontWeight="semibold"
-                              >
-                                {comment.author}
-                              </Text>
-                              <Text 
-                                color="gray.400" 
-                                fontSize="xs"
-                              >
-                                {formatCommentDate(comment.timestamp)}
-                              </Text>
-                            </VStack>
-                          </HStack>
-                        </HStack>
-                        <Text 
-                          color="gray.300" 
-                          fontSize="sm" 
-                          lineHeight="1.6"
-                          pl={12}
-                        >
-                          {comment.content}
-                        </Text>
-                      </Box>
-                    ))}
-                    
-                    {comments.length === 0 && (
-                      <Box
-                        textAlign="center"
-                        py={8}
-                        color="gray.500"
-                      >
-                        <Text>No comments yet. Be the first to comment!</Text>
-                      </Box>
-                    )}
-                  </VStack>
-                </VStack>
-              </CardBody>
-            </Card>
-          </VStack>
-        </Flex>
+              </VStack>
+            </CardBody>
+          </Card>
+        </Box>
 
         {/* Edit Story Modal */}
         <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
@@ -1225,7 +1088,7 @@ const StoryDetailsPage = () => {
                       _hover={{ borderColor: "gray.500" }}
                       _focus={{ borderColor: "blue.500", bg: "gray.700" }}
                     >
-                      {story.assignedTeam.map(member => (
+                      {(story?.assignedTeam ?? []).map(member => (
                         <option key={member} value={member} style={{ backgroundColor: '#2D3748' }}>
                           {member}
                         </option>

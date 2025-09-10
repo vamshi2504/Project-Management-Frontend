@@ -1,4 +1,15 @@
-import React, { useState } from 'react';
+  // Returns 'overdue', 'dueSoon', or 'normal' based on deadline
+  const getDeadlineStatus = (deadline) => {
+    if (!deadline) return 'normal';
+    const today = new Date();
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return 'overdue';
+    if (diffDays <= 3) return 'dueSoon';
+    return 'normal';
+  };
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -44,6 +55,16 @@ import {
   StatNumber,
   StatHelpText,
   Tooltip,
+  Spinner,
+  Center,
+  Alert,
+  AlertIcon,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from '@chakra-ui/react';
 import {
   FaSearch,
@@ -59,9 +80,19 @@ import {
   FaChartLine,
 } from 'react-icons/fa';
 import { Link as RouterLink } from 'react-router-dom';
+import { fetchProjectsByUser, createProject } from '../api/projects';
+import { useUser } from '../hooks/useUser';
 
 const Projects = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useUser();
+  
+  // Local state
+  const [projects, setProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isCreating, setIsCreating] = useState(false);
+  
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
   const cardContentBg = useColorModeValue('white', 'gray.700');
@@ -76,6 +107,9 @@ const Projects = () => {
   );
 
   const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const [projectToDelete, setProjectToDelete] = useState(null);
+  const cancelRef = React.useRef();
 
   // Filter and sort states
   const [searchTerm, setSearchTerm] = useState('');
@@ -93,124 +127,73 @@ const Projects = () => {
     tags: '',
   });
 
-  // Mock projects data
-  const [projects, setProjects] = useState([
-    {
-      id: 1,
-      name: 'E-commerce Platform',
-      description: 'Building a modern e-commerce platform with advanced features including payment integration, inventory management, and analytics.',
-      role: 'Project Manager',
-      status: 'Active',
-      progress: 85,
-      startDate: '2024-01-15',
-      deadline: '2024-08-15',
-      memberCount: 8,
-      priority: 'High',
-      tags: ['Frontend', 'Backend', 'Database'],
-      members: [
-        { name: 'John Doe', role: 'Frontend Developer' },
-        { name: 'Jane Smith', role: 'Backend Developer' },
-        { name: 'Mike Johnson', role: 'UI/UX Designer' },
-        { name: 'Sarah Wilson', role: 'QA Engineer' },
-      ],
-      totalTasks: 45,
-      completedTasks: 38,
-      owner: 'You',
-    },
-    {
-      id: 2,
-      name: 'Mobile App Development',
-      description: 'Cross-platform mobile application for task management with real-time synchronization and offline capabilities.',
-      role: 'Senior Developer',
-      status: 'Active',
-      progress: 62,
-      startDate: '2024-02-01',
-      deadline: '2024-09-01',
-      memberCount: 6,
-      priority: 'High',
-      tags: ['React Native', 'API', 'Mobile'],
-      members: [
-        { name: 'Alice Davis', role: 'Mobile Developer' },
-        { name: 'Tom Brown', role: 'Backend Developer' },
-        { name: 'Lisa Chen', role: 'UI/UX Designer' },
-      ],
-      totalTasks: 32,
-      completedTasks: 20,
-      owner: 'Alice Davis',
-    },
-    {
-      id: 3,
-      name: 'UI/UX Redesign',
-      description: 'Complete redesign of the user interface and experience for better usability and modern aesthetics.',
-      role: 'Lead Designer',
-      status: 'Planning',
-      progress: 25,
-      startDate: '2024-03-01',
-      deadline: '2024-07-30',
-      memberCount: 4,
-      priority: 'Medium',
-      tags: ['Design', 'Research', 'Prototyping'],
-      members: [
-        { name: 'Emma Wilson', role: 'UX Designer' },
-        { name: 'David Kim', role: 'UI Designer' },
-        { name: 'Chris Lee', role: 'UX Researcher' },
-      ],
-      totalTasks: 28,
-      completedTasks: 7,
-      owner: 'You',
-    },
-    {
-      id: 4,
-      name: 'API Documentation',
-      description: 'Comprehensive API documentation with interactive examples and integration guides.',
-      role: 'Technical Writer',
-      status: 'Completed',
-      progress: 100,
-      startDate: '2024-01-01',
-      deadline: '2024-03-01',
-      memberCount: 3,
-      priority: 'Low',
-      tags: ['Documentation', 'API'],
-      members: [
-        { name: 'Robert Johnson', role: 'Technical Writer' },
-        { name: 'Maria Garcia', role: 'Developer' },
-      ],
-      totalTasks: 15,
-      completedTasks: 15,
-      owner: 'Robert Johnson',
-    },
-  ]);
+  // Load projects when component mounts or user changes
+  useEffect(() => {
+    const loadProjects = async () => {
+      if (isAuthenticated && user?.uid) {
+        try {
+          setIsLoading(true);
+          const projectsData = await fetchProjectsByUser(user.uid);
+          setProjects(projectsData || []);
+          setError(null);
+        } catch (err) {
+          console.error('Error loading projects:', err);
+          setError(err.message || 'Failed to load projects');
+          setProjects([]);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
 
+    loadProjects();
+  }, [isAuthenticated, user?.uid]);
+
+  // Handle errors with toast notifications
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: 'Error',
+        description: error,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  }, [error, toast]);
+
+  // Utility functions
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'Active': return 'green';
-      case 'Planning': return 'blue';
-      case 'Completed': return 'gray';
-      case 'On Hold': return 'yellow';
+    switch (status?.toLowerCase()) {
+      case 'active': case 'in_progress': return 'green';
+      case 'planning': case 'pending': return 'blue';
+      case 'completed': case 'done': return 'gray';
+      case 'on_hold': case 'paused': return 'yellow';
       default: return 'gray';
     }
   };
 
   const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'High': return 'red';
-      case 'Medium': return 'yellow';
-      case 'Low': return 'green';
+    switch (priority?.toLowerCase()) {
+      case 'high': return 'red';
+      case 'medium': return 'yellow';
+      case 'low': return 'green';
       default: return 'gray';
     }
   };
 
   const getRoleColor = (role) => {
-    switch (role) {
-      case 'Project Manager': return 'purple';
-      case 'Lead Designer': return 'pink';
-      case 'Senior Developer': return 'blue';
-      case 'Technical Writer': return 'teal';
+    switch (role?.toLowerCase()) {
+      case 'project manager': case 'manager': return 'purple';
+      case 'lead designer': case 'designer': return 'pink';
+      case 'senior developer': case 'developer': return 'blue';
+      case 'technical writer': case 'writer': return 'teal';
       default: return 'gray';
     }
   };
 
   const calculateDaysLeft = (deadline) => {
+    if (!deadline) return null;
     const today = new Date();
     const deadlineDate = new Date(deadline);
     const diffTime = deadlineDate - today;
@@ -245,7 +228,7 @@ const Projects = () => {
       }
     });
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
     if (!newProject.name.trim() || !newProject.description.trim()) {
       toast({
         title: 'Error',
@@ -257,47 +240,108 @@ const Projects = () => {
       return;
     }
 
-    const project = {
-      id: Date.now(),
-      ...newProject,
-      role: 'Project Manager',
-      status: 'Planning',
-      progress: 0,
-      memberCount: 1,
-      members: [{ name: 'You', role: 'Project Manager' }],
-      totalTasks: 0,
-      completedTasks: 0,
-      owner: 'You',
+    const projectData = {
+      name: newProject.name.trim(),
+      description: newProject.description.trim(),
+      ownerId: user.uid, // Add ownerId field
+      startDate: newProject.startDate || new Date().toISOString().split('T')[0],
+      deadline: newProject.deadline,
+      priority: newProject.priority,
+      status: 'PLANNING',
       tags: newProject.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      teamMembers: [
+        {
+          userId: user.uid,
+          role: 'Project Manager' // Creator becomes project manager by default
+        }
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
-    setProjects(prev => [...prev, project]);
-    
-    toast({
-      title: 'Success',
-      description: 'Project created successfully!',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
+    try {
+      setIsCreating(true);
+      await createProject(projectData);
+      
+      toast({
+        title: 'Success',
+        description: 'Project created successfully!',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
 
-    setNewProject({
-      name: '',
-      description: '',
-      startDate: '',
-      deadline: '',
-      priority: 'Medium',
-      tags: '',
-    });
+      setNewProject({
+        name: '',
+        description: '',
+        startDate: '',
+        deadline: '',
+        priority: 'Medium',
+        tags: '',
+      });
 
-    onCreateClose();
+      onCreateClose();
+      
+      // Refresh the projects list
+      const projectsData = await fetchProjectsByUser(user.uid);
+      setProjects(projectsData || []);
+      
+    } catch (error) {
+      console.error('Error creating project:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create project',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Handle project deletion
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+
+    try {
+      await projectsAPI.deleteProject(projectToDelete._id || projectToDelete.id);
+      
+      // Refresh projects list
+      const projectsData = await fetchProjectsByUser(user.uid);
+      setProjects(projectsData || []);
+      
+      toast({
+        title: 'Success',
+        description: 'Project deleted successfully!',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      onDeleteClose();
+      setProjectToDelete(null);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete project',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
   // Stats calculation
-  const totalProjects = projects.length;
-  const activeProjects = projects.filter(p => p.status === 'Active').length;
-  const completedProjects = projects.filter(p => p.status === 'Completed').length;
-  const averageProgress = Math.round(projects.reduce((sum, p) => sum + p.progress, 0) / totalProjects);
+  const totalProjects = projects?.length || 0;
+  const activeProjects = projects?.filter(p => 
+    p.status?.toLowerCase() === 'active' || p.status?.toLowerCase() === 'in_progress'
+  ).length || 0;
+  const completedProjects = projects?.filter(p => 
+    p.status?.toLowerCase() === 'completed' || p.status?.toLowerCase() === 'done'
+  ).length || 0;
+  const averageProgress = totalProjects > 0 ? 
+    Math.round(projects.reduce((sum, p) => sum + (p.progress || 0), 0) / totalProjects) : 0;
 
   return (
     <Box 
@@ -335,6 +379,30 @@ const Projects = () => {
       />
       
       <VStack align="stretch" spacing={8} position="relative" zIndex={1} p={6}>
+        {/* Loading State */}
+        {isLoading && (
+          <Center h="400px">
+            <VStack spacing={4}>
+              <Spinner size="xl" color="blue.500" />
+              <Text color={textColor}>Loading projects...</Text>
+            </VStack>
+          </Center>
+        )}
+
+        {/* Error State */}
+        {error && !isLoading && (
+          <Alert status="error" borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <Text fontWeight="bold">Error loading projects</Text>
+              <Text fontSize="sm">{error}</Text>
+            </Box>
+          </Alert>
+        )}
+
+        {/* Main Content - Only show when not loading */}
+        {!isLoading && (
+          <>
         {/* Header Section with Gradient */}
         <Box
           bgGradient={gradientBg}
@@ -747,22 +815,35 @@ const Projects = () => {
         {/* Projects Grid */}
         <SimpleGrid columns={{ base: 1, lg: 2, xl: 3 }} spacing={6}>
           {filteredAndSortedProjects.map((project, index) => (
-            <Card 
-              key={project.id} 
-              bg={cardBg} 
-              borderColor={borderColor}
+            <Card
+              key={project._id || project.id || index}
+              bg={
+                getDeadlineStatus(project.deadline) === 'overdue' ? useColorModeValue('red.50', 'red.900') :
+                getDeadlineStatus(project.deadline) === 'dueSoon' ? useColorModeValue('yellow.50', 'yellow.900') :
+                cardBg
+              }
+              borderColor={
+                getDeadlineStatus(project.deadline) === 'overdue' ? 'red.400' :
+                getDeadlineStatus(project.deadline) === 'dueSoon' ? 'yellow.400' :
+                borderColor
+              }
               shadow="xl"
               borderRadius="2xl"
-              border="none"
+              border="2px"
               position="relative"
               overflow="hidden"
               transform="translateY(0) scale(1)"
               transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
-              _hover={{ 
+              _hover={{
                 transform: "translateY(-5px) scale(1.02)",
                 shadow: "2xl",
-                borderColor: useColorModeValue('blue.200', 'blue.500')
+                borderColor:
+                  getDeadlineStatus(project.deadline) === 'overdue' ? 'red.500' :
+                  getDeadlineStatus(project.deadline) === 'dueSoon' ? 'yellow.500' :
+                  useColorModeValue('blue.200', 'blue.500'),
+                cursor: "pointer"
               }}
+              onClick={() => navigate(`/project/${project._id || project.id}`)}
               _before={{
                 content: '""',
                 position: "absolute",
@@ -770,7 +851,12 @@ const Projects = () => {
                 left: 0,
                 right: 0,
                 height: "3px",
-                bgGradient: `linear(90deg, ${getStatusColor(project.status)}.400, ${getPriorityColor(project.priority)}.400)`,
+                bgGradient:
+                  getDeadlineStatus(project.deadline) === 'overdue'
+                    ? 'linear(90deg, red.400, red.600)'
+                    : getDeadlineStatus(project.deadline) === 'dueSoon'
+                    ? 'linear(90deg, yellow.400, orange.400)'
+                    : `linear(90deg, ${getStatusColor(project.status)}.400, ${getPriorityColor(project.priority)}.400)`,
               }}
               animation={`fadeInScale 0.6s ease-out ${0.5 + index * 0.1}s both`}
             >
@@ -813,62 +899,10 @@ const Projects = () => {
                         py={1}
                         fontWeight="bold"
                       >
-                        {project.role}
+                        {project.teamMembers?.find(m => m.userId === user.uid)?.role || 'Member'}
                       </Badge>
                     </HStack>
                   </VStack>
-                  
-                  <Menu>
-                    <MenuButton
-                      as={IconButton}
-                      icon={<FaEllipsisV />}
-                      size="sm"
-                      variant="ghost"
-                      color={textColor}
-                      _hover={{
-                        bg: useColorModeValue('gray.100', 'gray.600'),
-                        transform: "scale(1.1)"
-                      }}
-                      transition="all 0.2s ease"
-                    />
-                    <MenuList 
-                      bg={cardBg}
-                      borderColor={borderColor}
-                      shadow="xl"
-                    >
-                      <MenuItem 
-                        icon={<FaEye />}
-                        as={RouterLink}
-                        to={`/projects/${project.id}`}
-                        _hover={{
-                          bg: useColorModeValue('blue.50', 'gray.600')
-                        }}
-                      >
-                        View Details
-                      </MenuItem>
-                      {project.owner === 'You' && (
-                        <>
-                          <MenuItem 
-                            icon={<FaEdit />}
-                            _hover={{
-                              bg: useColorModeValue('green.50', 'gray.600')
-                            }}
-                          >
-                            Edit Project
-                          </MenuItem>
-                          <MenuItem 
-                            icon={<FaTrash />} 
-                            color="red.500"
-                            _hover={{
-                              bg: useColorModeValue('red.50', 'red.800')
-                            }}
-                          >
-                            Delete Project
-                          </MenuItem>
-                        </>
-                      )}
-                    </MenuList>
-                  </Menu>
                 </HStack>
               </CardHeader>
 
@@ -876,7 +910,9 @@ const Projects = () => {
                 <VStack align="stretch" spacing={4}>
                   {/* Description */}
                   <Text fontSize="sm" color={mutedTextColor} noOfLines={3} fontWeight="medium">
-                    {project.description}
+                    {project.description && project.description.length > 120
+                      ? project.description.slice(0, 120) + '...'
+                      : project.description}
                   </Text>
 
                   {/* Progress */}
@@ -912,13 +948,19 @@ const Projects = () => {
                         <Icon as={FaUsers} boxSize={3} color={useColorModeValue('blue.500', 'blue.300')} />
                         <Text fontSize="xs" color={mutedTextColor} fontWeight="semibold">Team</Text>
                       </HStack>
-                      <Text fontSize="sm" fontWeight="bold" color={textColor}>{project.memberCount} members</Text>
+                      <Text fontSize="sm" fontWeight="bold" color={textColor}>{project.teamMembers.length} members</Text>
                     </VStack>
 
                     <VStack align="start" spacing={1}>
                       <HStack>
                         <Icon as={FaClock} boxSize={3} color={useColorModeValue('orange.500', 'orange.300')} />
                         <Text fontSize="xs" color={mutedTextColor} fontWeight="semibold">Timeline</Text>
+                        {getDeadlineStatus(project.deadline) === 'overdue' && (
+                          <Badge colorScheme="red" ml={2} fontWeight="bold">Overdue</Badge>
+                        )}
+                        {getDeadlineStatus(project.deadline) === 'dueSoon' && (
+                          <Badge colorScheme="yellow" ml={2} fontWeight="bold">Due Soon</Badge>
+                        )}
                       </HStack>
                       <Text fontSize="sm" fontWeight="bold" color={textColor}>
                         {calculateDaysLeft(project.deadline)} days left
@@ -926,23 +968,37 @@ const Projects = () => {
                     </VStack>
                   </SimpleGrid>
 
-                  {/* Tasks Progress */}
-                  <HStack justify="space-between" fontSize="sm">
-                    <Text color={mutedTextColor} fontWeight="semibold">
-                      Tasks: {project.completedTasks}/{project.totalTasks}
-                    </Text>
-                    <Text color={mutedTextColor} fontWeight="semibold">
-                      Due: {new Date(project.deadline).toLocaleDateString()}
-                    </Text>
+                  {/* Start and Due Dates Styled */}
+                  <HStack justify="flex-start" spacing={3} fontSize="sm">
+                    <Badge
+                      colorScheme="blue"
+                      variant="subtle"
+                      borderRadius="full"
+                      px={3}
+                      py={1}
+                      fontWeight="bold"
+                    >
+                      Start: {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}
+                    </Badge>
+                    <Badge
+                      colorScheme={getDeadlineStatus(project.deadline) === 'overdue' ? 'red' : getDeadlineStatus(project.deadline) === 'dueSoon' ? 'yellow' : 'green'}
+                      variant="subtle"
+                      borderRadius="full"
+                      px={3}
+                      py={1}
+                      fontWeight="bold"
+                    >
+                      Due: {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'N/A'}
+                    </Badge>
                   </HStack>
 
-                  {/* Team Avatars */}
+                  {/* Team Avatars
                   <HStack justify="space-between">
                     <AvatarGroup size="sm" max={4}>
-                      {project.members.map((member, index) => (
-                        <Tooltip key={index} label={`${member.name} - ${member.role}`}>
+                      {(project.teamMembers || []).map((member, index) => (
+                        <Tooltip key={index} label={`${member.name || 'User'} - ${member.role || 'Member'}`}>
                           <Avatar 
-                            name={member.name}
+                            name={member.name || member.userId || 'Unknown User'}
                             border="2px solid"
                             borderColor={useColorModeValue('white', 'gray.700')}
                           />
@@ -952,7 +1008,7 @@ const Projects = () => {
                     
                     <Button
                       as={RouterLink}
-                      to={`/projects/${project.id}`}
+                      to={`/projects/${project._id || project.id}`}
                       size="sm"
                       variant="solid"
                       colorScheme={getStatusColor(project.status)}
@@ -966,7 +1022,7 @@ const Projects = () => {
                     >
                       View
                     </Button>
-                  </HStack>
+                  </HStack> */}
 
                   {/* Tags */}
                   {project.tags && project.tags.length > 0 && (
@@ -1220,6 +1276,8 @@ const Projects = () => {
               <Button 
                 colorScheme="blue" 
                 onClick={handleCreateProject}
+                isLoading={isCreating}
+                loadingText="Creating..."
                 borderRadius="lg"
                 px={6}
                 _hover={{
@@ -1233,6 +1291,42 @@ const Projects = () => {
             </ModalFooter>
           </ModalContent>
         </Modal>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog
+          isOpen={isDeleteOpen}
+          leastDestructiveRef={cancelRef}
+          onClose={onDeleteClose}
+        >
+          <AlertDialogOverlay>
+            <AlertDialogContent>
+              <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                Delete Project
+              </AlertDialogHeader>
+
+              <AlertDialogBody>
+                Are you sure you want to delete "{projectToDelete?.name}"? 
+                This action cannot be undone.
+              </AlertDialogBody>
+
+              <AlertDialogFooter>
+                <Button ref={cancelRef} onClick={onDeleteClose}>
+                  Cancel
+                </Button>
+                <Button 
+                  colorScheme="red" 
+                  onClick={handleDeleteProject} 
+                  ml={3}
+                  isLoading={isLoading}
+                >
+                  Delete
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
+        </>
+        )}
       </VStack>
     
       {/* CSS Keyframes for animations */}

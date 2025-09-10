@@ -58,6 +58,35 @@ import {
   Center,
 } from "@chakra-ui/react";
 import React, { useState, useMemo, useEffect } from "react";
+import { inviteProjectMember } from '../api/projectMembers';
+  // Invite Member Modal State
+  const { isOpen: isInviteOpen, onOpen: onInviteOpen, onClose: onInviteClose } = useDisclosure();
+  const [inviteForm, setInviteForm] = useState({ email: '', role: '' });
+  const [isInviting, setIsInviting] = useState(false);
+
+  const handleInviteChange = (e) => {
+    const { name, value } = e.target;
+    setInviteForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleInviteSubmit = async () => {
+    if (!inviteForm.email || !inviteForm.role) {
+      toast({ title: 'Email and Role required', status: 'warning' });
+      return;
+    }
+    setIsInviting(true);
+    try {
+      // Replace project.id with actual project id if available
+      await inviteProjectMember({ projectId: project.id || project._id, email: inviteForm.email, role: inviteForm.role });
+      toast({ title: 'Invite sent successfully', status: 'success' });
+      setInviteForm({ email: '', role: '' });
+      onInviteClose();
+    } catch (err) {
+      toast({ title: err.message || 'Failed to send invite', status: 'error' });
+    } finally {
+      setIsInviting(false);
+    }
+  };
 import { useParams, useNavigate } from "react-router-dom";
 import { 
   FaArrowLeft, 
@@ -189,7 +218,73 @@ const ProjectDetailsPage = () => {
     },
   ]);
 
-  // Mock burndown data (points completed over time)
+  // Mock stories data
+  const [stories, setStories] = useState([
+    {
+      id: 1,
+      title: 'User can register',
+      description: 'As a user, I want to register so I can use the platform.',
+      status: 'To Do',
+      assignedTo: 'Jane Smith',
+      storyPoints: 5,
+      createdAt: '2024-01-20',
+      dueDate: '2024-02-10',
+    },
+    {
+      id: 2,
+      title: 'User can login',
+      description: 'As a user, I want to login so I can access my account.',
+      status: 'In Progress',
+      assignedTo: 'Tom Brown',
+      storyPoints: 3,
+      createdAt: '2024-01-22',
+      dueDate: '2024-02-12',
+    },
+    {
+      id: 3,
+      title: 'Admin can view users',
+      description: 'As an admin, I want to view all users for management.',
+      status: 'Done',
+      assignedTo: 'John Doe',
+      storyPoints: 2,
+      createdAt: '2024-01-25',
+      dueDate: '2024-02-15',
+    },
+  ]);
+
+  // Add story modal state
+  const { isOpen: isAddStoryOpen, onOpen: onAddStoryOpen, onClose: onAddStoryClose } = useDisclosure();
+  const [newStory, setNewStory] = useState({
+    title: '',
+    description: '',
+    assignedTo: '',
+    storyPoints: '',
+    dueDate: '',
+  });
+
+  const handleAddStoryChange = (e) => {
+    const { name, value } = e.target;
+    setNewStory((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddStory = () => {
+    if (!newStory.title || !newStory.description) {
+      toast({ title: 'Title and Description required', status: 'warning' });
+      return;
+    }
+    setStories((prev) => [
+      ...prev,
+      {
+        ...newStory,
+        id: prev.length + 1,
+        status: 'To Do',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    setNewStory({ title: '', description: '', assignedTo: '', storyPoints: '', dueDate: '' });
+    onAddStoryClose();
+    toast({ title: 'Story added', status: 'success' });
+  };
   const [burndownData] = useState([
     { date: '2024-01-15', planned: 100, actual: 100 },
     { date: '2024-02-01', planned: 90, actual: 95 },
@@ -660,13 +755,13 @@ const ProjectDetailsPage = () => {
                     <Button size="sm" leftIcon={<FaEdit />} variant="outline">
                       Edit Project
                     </Button>
-                    <Button size="sm" leftIcon={<FaUserPlus />} colorScheme="blue" variant="outline">
-                      Add Member
+                    <Button size="sm" leftIcon={<FaUserPlus />} colorScheme="blue" variant="outline" onClick={onInviteOpen}>
+                      Invite Member
                     </Button>
                   </HStack>
                   <AvatarGroup size="sm" max={5}>
                     {project.team.map((member, index) => (
-                      <Tooltip key={index} label={`${member.name} - ${member.role}`}>
+                                  <Tooltip key={member.userId || member._id || index} label={`${member.name} - ${member.role}`}>
                         <Avatar name={member.name} />
                       </Tooltip>
                     ))}
@@ -730,21 +825,12 @@ const ProjectDetailsPage = () => {
           <CardBody p={0}>
             <Tabs colorScheme="blue" variant="enclosed">
               <TabList>
-                <Tab leftIcon={<FaProjectDiagram />}>
-                  Overview
-                </Tab>
-                <Tab leftIcon={<FaBurn />}>
-                  Burndown Chart
-                </Tab>
-                <Tab leftIcon={<FaChartBar />}>
-                  Gantt Chart
-                </Tab>
-                <Tab leftIcon={<FaUsers />}>
-                  Team
-                </Tab>
-                <Tab leftIcon={<FaTasks />}>
-                  Features
-                </Tab>
+                <Tab leftIcon={<FaProjectDiagram />}>Overview</Tab>
+                <Tab leftIcon={<FaBurn />}>Burndown Chart</Tab>
+                <Tab leftIcon={<FaChartBar />}>Gantt Chart</Tab>
+                <Tab leftIcon={<FaUsers />}>Team</Tab>
+                <Tab leftIcon={<FaTasks />}>Features</Tab>
+                <Tab leftIcon={<FaTasks />}>Stories</Tab>
               </TabList>
 
               <TabPanels>
@@ -849,9 +935,42 @@ const ProjectDetailsPage = () => {
                     <CardBody>
                       <HStack justify="space-between" mb={6}>
                         <Heading size="md">Team Members</Heading>
-                        <Button leftIcon={<FaUserPlus />} colorScheme="blue" size="sm">
-                          Add Member
+                        <Button leftIcon={<FaUserPlus />} colorScheme="blue" size="sm" onClick={onInviteOpen}>
+                          Invite Member
                         </Button>
+      {/* Invite Member Modal */}
+      <Modal isOpen={isInviteOpen} onClose={onInviteClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Invite Project Member</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <FormControl isRequired>
+                <FormLabel>Email</FormLabel>
+                <Input name="email" type="email" value={inviteForm.email} onChange={handleInviteChange} />
+              </FormControl>
+              <FormControl isRequired>
+                <FormLabel>Role</FormLabel>
+                <Select name="role" value={inviteForm.role} onChange={handleInviteChange} placeholder="Select role">
+                  <option value="Project Manager">Project Manager</option>
+                  <option value="Developer">Developer</option>
+                  <option value="Designer">Designer</option>
+                  <option value="QA Engineer">QA Engineer</option>
+                  <option value="DevOps Engineer">DevOps Engineer</option>
+                  <option value="Other">Other</option>
+                </Select>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" mr={3} onClick={handleInviteSubmit} isLoading={isInviting}>
+              Send Invite
+            </Button>
+            <Button variant="ghost" onClick={onInviteClose}>Cancel</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
                       </HStack>
                       
                       <TableContainer>
@@ -924,7 +1043,6 @@ const ProjectDetailsPage = () => {
                         Add Feature
                       </Button>
                     </HStack>
-
                     <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4} w="full">
                       {features.map((feature) => (
                         <Card key={feature.id} borderColor={borderColor}>
@@ -941,11 +1059,9 @@ const ProjectDetailsPage = () => {
                                   {feature.status}
                                 </Badge>
                               </HStack>
-                              
                               <Text fontSize="sm" color="gray.600">
                                 Assigned to: {feature.assignedTo}
                               </Text>
-                              
                               <Box>
                                 <HStack justify="space-between" mb={1}>
                                   <Text fontSize="xs" color="gray.500">Progress</Text>
@@ -958,7 +1074,6 @@ const ProjectDetailsPage = () => {
                                   borderRadius="full"
                                 />
                               </Box>
-                              
                               <HStack justify="space-between" fontSize="xs" color="gray.500">
                                 <Text>Tasks: {feature.completedTasks}/{feature.tasksCount}</Text>
                                 <Text>Due: {formatDate(feature.endDate)}</Text>
@@ -969,6 +1084,80 @@ const ProjectDetailsPage = () => {
                       ))}
                     </SimpleGrid>
                   </VStack>
+                </TabPanel>
+
+                {/* Stories Tab */}
+                <TabPanel>
+                  <VStack spacing={4}>
+                    <HStack justify="space-between" w="full">
+                      <Heading size="md">Project Stories</Heading>
+                      <Button leftIcon={<FaPlus />} colorScheme="blue" size="sm" onClick={onAddStoryOpen}>
+                        Add Story
+                      </Button>
+                    </HStack>
+                    <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4} w="full">
+                      {stories.map((story) => (
+                        <Card key={story.id} borderColor={borderColor}>
+                          <CardBody>
+                            <VStack align="stretch" spacing={3}>
+                              <HStack justify="space-between">
+                                <Heading size="sm">{story.title}</Heading>
+                                <Badge colorScheme={
+                                  story.status === 'Done' ? 'green' :
+                                  story.status === 'In Progress' ? 'blue' : 'gray'
+                                }>
+                                  {story.status}
+                                </Badge>
+                              </HStack>
+                              <Text fontSize="sm" color="gray.600">{story.description}</Text>
+                              <Text fontSize="xs" color="gray.500">Assigned to: {story.assignedTo || 'Unassigned'}</Text>
+                              <HStack justify="space-between" fontSize="xs" color="gray.500">
+                                <Text>Points: {story.storyPoints || '-'}</Text>
+                                <Text>Due: {story.dueDate ? formatDate(story.dueDate) : '-'}</Text>
+                              </HStack>
+                            </VStack>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </SimpleGrid>
+                  </VStack>
+
+                  {/* Add Story Modal */}
+                  <Modal isOpen={isAddStoryOpen} onClose={onAddStoryClose}>
+                    <ModalOverlay />
+                    <ModalContent>
+                      <ModalHeader>Add New Story</ModalHeader>
+                      <ModalCloseButton />
+                      <ModalBody>
+                        <VStack spacing={4} align="stretch">
+                          <FormControl isRequired>
+                            <FormLabel>Title</FormLabel>
+                            <Input name="title" value={newStory.title} onChange={handleAddStoryChange} />
+                          </FormControl>
+                          <FormControl isRequired>
+                            <FormLabel>Description</FormLabel>
+                            <Textarea name="description" value={newStory.description} onChange={handleAddStoryChange} />
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Assigned To</FormLabel>
+                            <Input name="assignedTo" value={newStory.assignedTo} onChange={handleAddStoryChange} />
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Story Points</FormLabel>
+                            <Input name="storyPoints" type="number" value={newStory.storyPoints} onChange={handleAddStoryChange} />
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Due Date</FormLabel>
+                            <Input name="dueDate" type="date" value={newStory.dueDate} onChange={handleAddStoryChange} />
+                          </FormControl>
+                        </VStack>
+                      </ModalBody>
+                      <ModalFooter>
+                        <Button colorScheme="blue" mr={3} onClick={handleAddStory}>Add</Button>
+                        <Button variant="ghost" onClick={onAddStoryClose}>Cancel</Button>
+                      </ModalFooter>
+                    </ModalContent>
+                  </Modal>
                 </TabPanel>
               </TabPanels>
             </Tabs>

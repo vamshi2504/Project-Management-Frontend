@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthState } from 'react-firebase-hooks/auth';
 import {
   Box,
   Heading,
@@ -45,6 +46,8 @@ import {
   StatHelpText,
   Tooltip,
 } from '@chakra-ui/react';
+import { auth } from '../firebase';
+import chatService from '../services/chatService';
 import {
   FaSearch,
   FaPlus,
@@ -62,6 +65,7 @@ import { Link as RouterLink } from 'react-router-dom';
 
 const Projects = () => {
   const navigate = useNavigate();
+  const [user] = useAuthState(auth);
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -237,7 +241,7 @@ const Projects = () => {
       }
     });
 
-  const handleCreateProject = () => {
+  const handleCreateProject = async () => {
     if (!newProject.name.trim() || !newProject.description.trim()) {
       toast({
         title: 'Error',
@@ -256,22 +260,47 @@ const Projects = () => {
       status: 'Planning',
       progress: 0,
       memberCount: 1,
-      members: [{ name: 'You', role: 'Project Manager' }],
+      members: [{ name: user?.displayName || user?.email || 'You', role: 'Project Manager', id: user?.uid }],
       totalTasks: 0,
       completedTasks: 0,
-      owner: 'You',
+      owner: user?.displayName || user?.email || 'You',
+      createdBy: user?.uid,
       tags: newProject.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
     };
 
-    setProjects(prev => [...prev, project]);
-    
-    toast({
-      title: 'Success',
-      description: 'Project created successfully!',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
+    try {
+      // Create the project
+      setProjects(prev => [...prev, project]);
+      
+      // Create a chat group for the project if user is logged in
+      if (user) {
+        await chatService.createProjectGroup({
+          id: project.id,
+          name: project.name,
+          members: [user.uid], // Start with just the creator
+          createdBy: user.uid,
+          description: project.description,
+          isPrivate: false
+        });
+      }
+      
+      toast({
+        title: 'Success',
+        description: 'Project and chat group created successfully!',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error('Error creating project group:', error);
+      toast({
+        title: 'Project created',
+        description: 'Project created but failed to create chat group. You can create one manually in Chat.',
+        status: 'warning',
+        duration: 4000,
+        isClosable: true,
+      });
+    }
 
     setNewProject({
       name: '',

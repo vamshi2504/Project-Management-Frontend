@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Flex,
@@ -7,82 +7,56 @@ import {
   HStack,
   Heading,
   Text,
-  Input,
-  InputGroup,
-  InputLeftElement,
-  InputRightElement,
   Button,
-  FormControl,
-  FormLabel,
-  Link,
   Icon,
   useToast,
-  Image,
   Divider,
-  Checkbox,
 } from '@chakra-ui/react';
-import { EmailIcon, LockIcon, ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import { FaGoogle, FaGithub, FaProjectDiagram } from 'react-icons/fa';
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider, githubProvider } from '../firebase';
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    rememberMe: false,
-  });
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
+  // Get redirect param from URL if present
+  const searchParams = new URLSearchParams(location.search);
+  const redirectPath = searchParams.get('redirect');
 
-  const handleLogin = async () => {
-    // Basic validation
-    if (!formData.email || !formData.password) {
-      toast({
-        title: 'Error',
-        description: 'Please fill in all fields.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-
+  const handleSocialLogin = async (provider) => {
     setIsLoading(true);
-
-    // Simulate API call
-    setTimeout(() => {
-      // For demo purposes, accept any email/password
+    let providerInstance = null;
+    if (provider === 'Google') providerInstance = googleProvider;
+    if (provider === 'GitHub') providerInstance = githubProvider;
+    if (!providerInstance) return;
+    try {
+      await signInWithPopup(auth, providerInstance);
       toast({
         title: 'Success',
-        description: 'Welcome back!',
+        description: `Logged in with ${provider}`,
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
-      
-      // Navigate to dashboard
-      navigate('/dashboard');
+      if (redirectPath) {
+        navigate(redirectPath);
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      toast({
+        title: 'Login Failed',
+        description: error.message,
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
-  };
-
-  const handleSocialLogin = (provider) => {
-    toast({
-      title: 'Feature Coming Soon',
-      description: `${provider} login will be available soon!`,
-      status: 'info',
-      duration: 3000,
-      isClosable: true,
-    });
+    }
   };
 
   return (
@@ -140,6 +114,8 @@ const Login = () => {
               _hover={{ bg: "gray.700", borderColor: "gray.500" }}
               leftIcon={<Icon as={FaGoogle} color="red.400" />}
               onClick={() => handleSocialLogin('Google')}
+              isLoading={isLoading}
+              loadingText="Signing in..."
             >
               Continue with Google
             </Button>
@@ -151,123 +127,11 @@ const Login = () => {
               _hover={{ bg: "gray.700", borderColor: "gray.500" }}
               leftIcon={<Icon as={FaGithub} />}
               onClick={() => handleSocialLogin('GitHub')}
+              isLoading={isLoading}
+              loadingText="Signing in..."
             >
               Continue with GitHub
             </Button>
-          </VStack>
-
-          {/* Divider */}
-          <HStack spacing={4} mb={6}>
-            <Divider borderColor="gray.600" />
-            <Text color="gray.500" fontSize="sm" whiteSpace="nowrap">
-              Or continue with email
-            </Text>
-            <Divider borderColor="gray.600" />
-          </HStack>
-
-          {/* Login Form */}
-          <VStack spacing={4}>
-            <FormControl>
-              <FormLabel color="gray.300" fontSize="sm">
-                Email Address
-              </FormLabel>
-              <InputGroup>
-                <InputLeftElement pointerEvents="none">
-                  <EmailIcon color="gray.500" />
-                </InputLeftElement>
-                <Input
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="Enter your email"
-                  bg="gray.700"
-                  border="1px"
-                  borderColor="gray.600"
-                  color="white"
-                  _hover={{ borderColor: "gray.500" }}
-                  _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                />
-              </InputGroup>
-            </FormControl>
-
-            <FormControl>
-              <FormLabel color="gray.300" fontSize="sm">
-                Password
-              </FormLabel>
-              <InputGroup>
-                <InputLeftElement pointerEvents="none">
-                  <LockIcon color="gray.500" />
-                </InputLeftElement>
-                <Input
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  placeholder="Enter your password"
-                  bg="gray.700"
-                  border="1px"
-                  borderColor="gray.600"
-                  color="white"
-                  _hover={{ borderColor: "gray.500" }}
-                  _focus={{ borderColor: "blue.500", bg: "gray.700" }}
-                />
-                <InputRightElement>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPassword(!showPassword)}
-                    color="gray.400"
-                    _hover={{ color: "white" }}
-                  >
-                    {showPassword ? <ViewOffIcon /> : <ViewIcon />}
-                  </Button>
-                </InputRightElement>
-              </InputGroup>
-            </FormControl>
-
-            {/* Remember Me and Forgot Password */}
-            <Flex justify="space-between" w="full" align="center">
-              <Checkbox
-                name="rememberMe"
-                isChecked={formData.rememberMe}
-                onChange={handleInputChange}
-                colorScheme="blue"
-                color="gray.300"
-                size="sm"
-              >
-                Remember me
-              </Checkbox>
-              <Link color="blue.400" fontSize="sm" _hover={{ color: "blue.300" }}>
-                Forgot password?
-              </Link>
-            </Flex>
-
-            {/* Login Button */}
-            <Button
-              w="full"
-              colorScheme="blue"
-              size="lg"
-              onClick={handleLogin}
-              isLoading={isLoading}
-              loadingText="Signing in..."
-              _hover={{ transform: 'translateY(-1px)', boxShadow: 'lg' }}
-              transition="all 0.2s"
-            >
-              Sign In
-            </Button>
-
-            {/* Sign Up Link */}
-            <Text color="gray.400" fontSize="sm" textAlign="center">
-              Don't have an account?{' '}
-              <Link 
-                color="blue.400" 
-                _hover={{ color: "blue.300" }}
-                onClick={() => navigate('/signup')}
-              >
-                Sign up for free
-              </Link>
-            </Text>
           </VStack>
         </Box>
         </Flex>

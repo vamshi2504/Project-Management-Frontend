@@ -22,6 +22,7 @@ import {
 import { SearchIcon, ChevronDownIcon, HamburgerIcon, BellIcon, SettingsIcon } from '@chakra-ui/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
 import React from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import logo from '../../assets/logo.png';
 
 const getPageTitle = (pathname) => {
@@ -55,6 +56,12 @@ const Header = ({ onSidebarToggle, isSidebarOpen }) => {
     { name: 'About Us', path: '/aboutus' },
     { name: 'Contact Us', path: '/contactus' },
   ];
+
+  const { user } = useAuth();
+  // Fallbacks for display
+  const displayName = user?.displayName || user?.name || user?.email || 'User';
+  const avatarUrl = user?.photoURL || user?.avatar || '';
+  const role = user?.role || 'Project Manager'; // You may want to fetch role from backend if available
 
   return (
     <Box 
@@ -106,7 +113,7 @@ const Header = ({ onSidebarToggle, isSidebarOpen }) => {
         <Spacer />
 
         {/* Navigation Menu */}
-        <HStack spacing={3} mr={6} display={{ base: "none", md: "flex" }}>
+        {/* <HStack spacing={3} mr={6} display={{ base: "none", md: "flex" }}>
           {navigationItems.map((item) => (
             <Button
               key={item.path}
@@ -122,7 +129,7 @@ const Header = ({ onSidebarToggle, isSidebarOpen }) => {
               {item.name}
             </Button>
           ))}
-        </HStack>
+        </HStack> */}
         
         {/* Search Bar */}
         <InputGroup maxW="250px" display={{ base: "none", md: "flex" }}>
@@ -167,7 +174,7 @@ const Header = ({ onSidebarToggle, isSidebarOpen }) => {
         {/* Right Section */}
         <HStack spacing={4}>
           {/* Notifications */}
-          <IconButton
+          {/* <IconButton
             aria-label="Notifications"
             icon={<BellIcon />}
             variant="ghost"
@@ -189,7 +196,7 @@ const Header = ({ onSidebarToggle, isSidebarOpen }) => {
               boxSize="8px"
               p={0}
             />
-          </IconButton>
+          </IconButton> */}
 
           
 
@@ -211,18 +218,18 @@ const Header = ({ onSidebarToggle, isSidebarOpen }) => {
             >
               <HStack spacing={3}>
                 <Avatar 
-                  name="Vamshi" 
-                  src="/profile.jpg" 
+                  name={displayName}
+                  src={avatarUrl}
                   size="sm"
                   border="2px solid"
                   borderColor={useColorModeValue('gray.200', 'gray.600')}
                 />
                 <Box textAlign="left" display={{ base: 'none', md: 'block' }}>
                   <Text fontSize="sm" fontWeight="semibold" color={textColor}>
-                    Vamshi
+                    {displayName}
                   </Text>
                   <Text fontSize="xs" color={useColorModeValue('gray.500', 'gray.400')}>
-                    Project Manager
+                    {role}
                   </Text>
                 </Box>
                 <ChevronDownIcon color={textColor} />

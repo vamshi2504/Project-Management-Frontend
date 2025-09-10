@@ -29,9 +29,9 @@ const Sidebar = ({ isOpen = false, onToggle }) => {
     { label: 'Dashboard', icon: FiHome, path: '/dashboard' },
     { label: 'Projects', icon: FiFolder, path: '/projects' },
     { label: 'Board', icon: FiTrello, path: '/board' },
-    { label: 'Calendar', icon: FiCalendar, path: '/calendar' },
+    // { label: 'Calendar', icon: FiCalendar, path: '/calendar' },
     { label: 'Chat', icon: FiMessageSquare, path: '/chat' },
-    { label: 'Settings', icon: FiSettings, path: '/settings' },
+    // { label: 'Settings', icon: FiSettings, path: '/settings' },
   ];
 
   // Navigation items that appear in sidebar on mobile only

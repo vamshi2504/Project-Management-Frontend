@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -38,6 +38,9 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Spinner,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import { 
   ArrowBackIcon, 
@@ -58,212 +61,8 @@ import {
   FaChartLine,
 } from 'react-icons/fa';
 
-// Mock data - in a real app, this would come from an API
-const mockProjects = [
-  {
-    id: 1,
-    name: 'Task Manager',
-    description: 'A comprehensive task management system with real-time collaboration',
-    features: [
-      {
-        id: 1,
-        name: 'User Authentication',
-        description: 'Login, signup, and user management system',
-        status: 'In Progress',
-        progress: 75,
-        tasksCompleted: 3,
-        totalTasks: 4,
-        startDate: '2025-06-01',
-        dueDate: '2025-07-15',
-        priority: 'High',
-        assignedTeam: ['You', 'Bob Smith', 'Charlie Davis'],
-        tasks: [
-          {
-            id: 1,
-            title: 'Create Login Page',
-            description: 'Design and develop login screen UI with modern authentication flow',
-            status: 'To Do',
-            assignedTo: 'You',
-            dueDate: '2025-07-10',
-            tags: ['Frontend', 'UI/UX'],
-            priority: 'High',
-            projectId: 1,
-            featureId: 1,
-          },
-          {
-            id: 2,
-            title: 'Implement JWT Authentication',
-            description: 'Set up JWT token-based authentication system',
-            status: 'In Progress',
-            assignedTo: 'Bob Smith',
-            dueDate: '2025-07-08',
-            tags: ['Backend', 'Security'],
-            priority: 'High',
-            projectId: 1,
-            featureId: 1,
-          },
-          {
-            id: 3,
-            title: 'Password Reset Flow',
-            description: 'Implement forgot password and reset functionality',
-            status: 'Done',
-            assignedTo: 'You',
-            dueDate: '2025-07-05',
-            tags: ['Backend', 'Security'],
-            priority: 'Medium',
-            projectId: 1,
-            featureId: 1,
-          },
-          {
-            id: 4,
-            title: 'User Profile Management',
-            description: 'Create user profile editing and management interface',
-            status: 'To Do',
-            assignedTo: 'Charlie Davis',
-            dueDate: '2025-07-12',
-            tags: ['Frontend', 'UI/UX'],
-            priority: 'Medium',
-            projectId: 1,
-            featureId: 1,
-          },
-        ]
-      },
-      {
-        id: 2,
-        name: 'Task Management',
-        description: 'Core task creation, editing, and tracking functionality',
-        status: 'In Progress',
-        progress: 50,
-        tasksCompleted: 2,
-        totalTasks: 4,
-        startDate: '2025-06-15',
-        dueDate: '2025-08-01',
-        priority: 'High',
-        assignedTeam: ['You', 'David Wilson', 'Emma Brown'],
-        tasks: [
-          {
-            id: 5,
-            title: 'Task CRUD Operations',
-            description: 'Create, read, update, delete operations for tasks',
-            status: 'In Progress',
-            assignedTo: 'You',
-            dueDate: '2025-07-12',
-            tags: ['Backend', 'API'],
-            priority: 'High',
-            projectId: 1,
-            featureId: 2,
-          },
-          {
-            id: 6,
-            title: 'Kanban Board UI',
-            description: 'Build drag-and-drop kanban board interface',
-            status: 'To Do',
-            assignedTo: 'You',
-            dueDate: '2025-07-15',
-            tags: ['Frontend', 'UI/UX'],
-            priority: 'High',
-            projectId: 1,
-            featureId: 2,
-          },
-          {
-            id: 7,
-            title: 'Task Assignment System',
-            description: 'Implement task assignment and notification system',
-            status: 'Done',
-            assignedTo: 'Emma Brown',
-            dueDate: '2025-07-08',
-            tags: ['Backend', 'API'],
-            priority: 'Medium',
-            projectId: 1,
-            featureId: 2,
-          },
-          {
-            id: 8,
-            title: 'Task Filtering and Search',
-            description: 'Add advanced filtering and search capabilities',
-            status: 'In Progress',
-            assignedTo: 'David Wilson',
-            dueDate: '2025-07-18',
-            tags: ['Frontend', 'Search'],
-            priority: 'Medium',
-            projectId: 1,
-            featureId: 2,
-          },
-        ]
-      },
-    ]
-  },
-  {
-    id: 2,
-    name: 'E-Commerce Platform',
-    description: 'Modern e-commerce solution with advanced analytics',
-    features: [
-      {
-        id: 4,
-        name: 'Product Catalog',
-        description: 'Product listing, search, and filtering system',
-        status: 'Completed',
-        progress: 100,
-        tasksCompleted: 4,
-        totalTasks: 4,
-        startDate: '2025-05-01',
-        dueDate: '2025-07-01',
-        priority: 'High',
-        assignedTeam: ['Grace Lee', 'Henry Taylor', 'Ivan Chen', 'Julia Kim'],
-        tasks: [
-          {
-            id: 11,
-            title: 'Product Search API',
-            description: 'Implement advanced product search functionality',
-            status: 'Done',
-            assignedTo: 'Grace Lee',
-            dueDate: '2025-07-03',
-            tags: ['Backend', 'Search'],
-            priority: 'High',
-            projectId: 2,
-            featureId: 4,
-          },
-          {
-            id: 12,
-            title: 'Filter Component',
-            description: 'Build product filter and sort UI components',
-            status: 'Done',
-            assignedTo: 'Henry Taylor',
-            dueDate: '2025-07-04',
-            tags: ['Frontend', 'UI/UX'],
-            priority: 'High',
-            projectId: 2,
-            featureId: 4,
-          },
-          {
-            id: 13,
-            title: 'Product Image Gallery',
-            description: 'Create responsive product image gallery component',
-            status: 'Done',
-            assignedTo: 'Ivan Chen',
-            dueDate: '2025-07-06',
-            tags: ['Frontend', 'UI/UX'],
-            priority: 'Medium',
-            projectId: 2,
-            featureId: 4,
-          },
-          {
-            id: 14,
-            title: 'Product Review System',
-            description: 'Implement product rating and review functionality',
-            status: 'Done',
-            assignedTo: 'Julia Kim',
-            dueDate: '2025-07-07',
-            tags: ['Frontend', 'Backend'],
-            priority: 'Medium',
-            projectId: 2,
-            featureId: 4,
-          },
-        ]
-      },
-    ]
-  },
-];
+import { fetchAllFeatures } from '../api/features';
+import { fetchTasksByFeature } from '../api/fetchTasksByFeature';
 
 const getStatusColor = (status) => {
   switch (status) {
@@ -356,16 +155,36 @@ const FeatureDetailsPage = () => {
   ]);
   const [newComment, setNewComment] = useState('');
 
-  // Find the feature and project
-  const { feature, project } = useMemo(() => {
-    for (const proj of mockProjects) {
-      for (const feat of proj.features) {
-        if (feat.id === parseInt(featureId)) {
-          return { feature: feat, project: proj };
+
+  // State for feature, tasks, loading, error
+  const [feature, setFeature] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch all features and find the one with this ID
+        const allFeatures = await fetchAllFeatures();
+        const feat = allFeatures.find(f => f._id?.toString() === featureId?.toString() || f.id?.toString() === featureId?.toString());
+        setFeature(feat);
+        if (feat) {
+          // Fetch tasks for this feature
+          const featureTasks = await fetchTasksByFeature(feat._id || feat.id);
+          setTasks(featureTasks);
+        } else {
+          setTasks([]);
         }
+      } catch (err) {
+        setError('Failed to load feature details');
+      } finally {
+        setLoading(false);
       }
-    }
-    return { feature: null, project: null };
+    };
+    fetchData();
   }, [featureId]);
 
   const [editFormData, setEditFormData] = useState({
@@ -386,28 +205,24 @@ const FeatureDetailsPage = () => {
     tags: [],
   });
 
-  // Group tasks by status
-  const tasksByStatus = useMemo(() => {
-    if (!feature) return { 'To Do': [], 'In Progress': [], 'Done': [] };
-    
+
+  // Group tasks by status (from fetched tasks)
+  const tasksByStatus = React.useMemo(() => {
     return {
-      'To Do': feature.tasks.filter(task => task.status === 'To Do'),
-      'In Progress': feature.tasks.filter(task => task.status === 'In Progress'),
-      'Done': feature.tasks.filter(task => task.status === 'Done'),
+      'To Do': tasks.filter(task => (task.status || '').toLowerCase() === 'to do' || (task.status || '').toLowerCase() === 'todo'),
+      'In Progress': tasks.filter(task => (task.status || '').toLowerCase() === 'in progress' || (task.status || '').toLowerCase() === 'in_progress'),
+      'Done': tasks.filter(task => (task.status || '').toLowerCase() === 'done' || (task.status || '').toLowerCase() === 'completed'),
     };
-  }, [feature]);
+  }, [tasks]);
 
   // Calculate feature statistics
-  const stats = useMemo(() => {
-    if (!feature) return { total: 0, completed: 0, inProgress: 0, todo: 0 };
-    
-    const total = feature.tasks.length;
-    const completed = feature.tasks.filter(task => task.status === 'Done').length;
-    const inProgress = feature.tasks.filter(task => task.status === 'In Progress').length;
-    const todo = feature.tasks.filter(task => task.status === 'To Do').length;
-    
+  const stats = React.useMemo(() => {
+    const total = tasks.length;
+    const completed = tasks.filter(task => (task.status || '').toLowerCase() === 'done' || (task.status || '').toLowerCase() === 'completed').length;
+    const inProgress = tasks.filter(task => (task.status || '').toLowerCase() === 'in progress' || (task.status || '').toLowerCase() === 'in_progress').length;
+    const todo = tasks.filter(task => (task.status || '').toLowerCase() === 'to do' || (task.status || '').toLowerCase() === 'todo').length;
     return { total, completed, inProgress, todo };
-  }, [feature]);
+  }, [tasks]);
 
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
@@ -660,75 +475,80 @@ const FeatureDetailsPage = () => {
     </Box>
   );
 
-  if (!feature || !project) {
+
+  if (loading) {
     return (
-      <Box px={8} py={6} bg="gray.900" minH="100vh">
-        <Text color="white" fontSize="xl">Feature not found</Text>
+      <Box px={8} py={6} bg="gray.900" minH="100vh" display="flex" alignItems="center" justifyContent="center">
+        <Spinner size="xl" color="blue.400" />
+        <Text color="white" fontSize="xl" ml={4}>Loading feature details...</Text>
       </Box>
     );
   }
 
+  if (error) {
+    return (
+      <Box px={8} py={6} bg="gray.900" minH="100vh">
+        <Alert status="error" borderRadius="md">
+          <AlertIcon />
+          <Text color="white">{error}</Text>
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (!feature) {
+    return (
+      <Box px={8} py={6} bg="gray.900" minH="100vh">
+        <Alert status="warning" borderRadius="md">
+          <AlertIcon />
+          <Text color="white">Feature not found</Text>
+        </Alert>
+      </Box>
+    );
+  }
+
+
   return (
-    <Box px={{ base: 4, md: 8 }} py={6} bg="gray.900" minH="100vh">
-      {/* Header */}
-      <Flex 
-        justify="space-between" 
-        align={{ base: "start", md: "center" }}
-        direction={{ base: "column", md: "row" }}
-        gap={4}
-        mb={8}
+    <Box bg="gray.900" minH="100vh" p={{ base: 4, md: 8 }}>
+      {/* Gradient Banner Heading */}
+      <Box
+        w="100%"
+        borderRadius="2xl"
+        p={{ base: 6, md: 10 }}
+        mb={6}
+        bgGradient="linear(to-r, purple.500, blue.400, teal.400, green.400, orange.300)"
+        boxShadow="lg"
+        display="flex"
+        alignItems="center"
       >
-        <HStack spacing={4} w="full" overflowX="auto">
-          <IconButton
-            icon={<ArrowBackIcon />}
-            onClick={() => navigate('/board')}
-            variant="ghost"
-            color="gray.400"
-            _hover={{ color: "white", bg: "gray.700" }}
-            size="lg"
-            flexShrink={0}
-          />
-          <VStack align="start" spacing={1} minW={0}>
-            <HStack spacing={2}>
-              <Icon as={FaProjectDiagram} color="blue.400" boxSize={4} />
-              <Text 
-                color="blue.400" 
-                fontSize="sm" 
-                fontWeight="medium"
-                noOfLines={1}
-              >
-                {project.name}
-              </Text>
-            </HStack>
-            <Heading 
-              size={{ base: "lg", md: "xl" }} 
-              color="white"
-              noOfLines={2}
-            >
-              {feature.name}
-            </Heading>
-            <Text 
-              color="gray.400" 
-              fontSize={{ base: "md", lg: "lg" }}
-              noOfLines={1}
-            >
-              Feature Details & Task Management
-            </Text>
-          </VStack>
-        </HStack>
-        <HStack 
-          spacing={3}
-          flexWrap={{ base: "wrap", md: "nowrap" }}
-          w={{ base: "full", md: "auto" }}
-          justify={{ base: "stretch", md: "flex-end" }}
-        >
+        <IconButton
+          icon={<ArrowBackIcon />}
+          onClick={() => navigate('/board')}
+          variant="ghost"
+          color="whiteAlpha.800"
+          _hover={{ color: "white", bg: "gray.700" }}
+          size="lg"
+          flexShrink={0}
+          mr={4}
+        />
+        <Box>
+          <Text fontSize={{ base: '2xl', md: '3xl', lg: '4xl' }} fontWeight="extrabold" color="white" lineHeight="1.1">
+            {feature.name || feature.title}
+          </Text>
+          <Text fontSize={{ base: 'md', md: 'lg' }} color="whiteAlpha.800" fontWeight="medium">
+            Feature Details & Task Management
+          </Text>
+        </Box>
+        <HStack ml="auto" spacing={3}>
           <Button
             leftIcon={<EditIcon />}
             onClick={onEditOpen}
             variant="outline"
             colorScheme="blue"
+            borderRadius="xl"
+            px={6}
+            size="lg"
             _hover={{ bg: "blue.600", borderColor: "blue.600" }}
-            flex={{ base: 1, md: "none" }}
           >
             Edit Feature
           </Button>
@@ -736,17 +556,16 @@ const FeatureDetailsPage = () => {
             colorScheme="blue" 
             leftIcon={<AddIcon />}
             onClick={onTaskOpen}
-            size={{ base: "md", md: "lg" }}
+            size="lg"
             borderRadius="xl"
-            px={{ base: 4, md: 6 }}
+            px={6}
             _hover={{ transform: 'translateY(-2px)', boxShadow: 'xl' }}
             transition="all 0.2s"
-            flex={{ base: 1, md: "none" }}
           >
             Add Task
           </Button>
         </HStack>
-      </Flex>
+      </Box>
 
       {/* Feature Information Card */}
       <Card
@@ -850,7 +669,7 @@ const FeatureDetailsPage = () => {
                   Team Members
                 </Text>
                 <Flex wrap="wrap" gap={2}>
-                  {feature.assignedTeam.map((member, index) => (
+                  {(feature.assignedTeam || []).map((member, index) => (
                     <HStack key={index} spacing={2} bg="gray.700" px={3} py={1} borderRadius="full">
                       <Avatar name={member} size="xs" />
                       <Text color="white" fontSize="sm">
@@ -1252,7 +1071,7 @@ const FeatureDetailsPage = () => {
                     _hover={{ borderColor: "gray.500" }}
                     _focus={{ borderColor: "blue.500", bg: "gray.700" }}
                   >
-                    {feature.assignedTeam.map(member => (
+                    {(feature?.assignedTeam || []).map(member => (
                       <option key={member} value={member} style={{ backgroundColor: '#2D3748' }}>
                         {member}
                       </option>

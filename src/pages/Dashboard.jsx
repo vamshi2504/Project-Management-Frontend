@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
@@ -25,6 +25,7 @@ import {
   StatLabel,
   StatNumber,
   StatHelpText,
+  Spinner,
 } from '@chakra-ui/react';
 import {
   FaTasks,
@@ -40,7 +41,26 @@ import {
 } from 'react-icons/fa';
 import { Link as RouterLink } from 'react-router-dom';
 
+// API imports
+import { fetchAllTasks } from '../api/tasks';
+import { fetchAllProjects } from '../api/projects';
+import { useUser } from '../hooks/useUser';
+
 const Dashboard = () => {
+  // Local state for data
+  const [tasks, setTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(true);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const [analytics, setAnalytics] = useState({
+    totalTasks: 0,
+    completedTasks: 0,
+    pendingTasks: 0,
+    overdueTasks: 0
+  });
+  
+  const { user } = useUser();
+
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBg = useColorModeValue('white', 'gray.800');
   const cardContentBg = useColorModeValue('white', 'gray.700');
@@ -53,57 +73,77 @@ const Dashboard = () => {
     'linear(135deg, purple.600 0%, blue.600 25%, teal.600 50%, green.600 75%, yellow.600 100%)'
   );
 
-  // Mock data - replace with actual API calls
-  const [assignedTasks] = useState([
-    { id: 1, title: 'Implement user authentication', project: 'E-commerce Platform', priority: 'High', dueDate: '2024-07-15' },
-    { id: 2, title: 'Design dashboard mockups', project: 'UI/UX Redesign', priority: 'Medium', dueDate: '2024-07-18' },
-    { id: 3, title: 'Setup CI/CD pipeline', project: 'Mobile App', priority: 'High', dueDate: '2024-07-20' },
-  ]);
+  // Load data on component mount
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setTasksLoading(true);
+        setProjectsLoading(true);
+        
+        // Fetch tasks
+        const tasksData = await fetchAllTasks();
+        setTasks(tasksData || []);
+        
+        // Calculate analytics from tasks
+        const totalTasks = tasksData?.length || 0;
+        const completedTasks = tasksData?.filter(task => task.status === 'completed').length || 0;
+        const pendingTasks = tasksData?.filter(task => task.status === 'pending' || task.status === 'in-progress').length || 0;
+        const overdueTasks = tasksData?.filter(task => {
+          const dueDate = new Date(task.dueDate);
+          return dueDate < new Date() && task.status !== 'completed';
+        }).length || 0;
+        
+        setAnalytics({
+          totalTasks,
+          completedTasks,
+          pendingTasks,
+          overdueTasks
+        });
+        
+  // Fetch all projects (dynamic dashboard)
+  const projectsData = await fetchAllProjects();
+  setProjects(projectsData || []);
+        
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        // Set fallback data
+        setTasks([]);
+        setProjects([]);
+      } finally {
+        setTasksLoading(false);
+        setProjectsLoading(false);
+      }
+    };
 
-  const [incompleteTasks] = useState([
-    { id: 4, title: 'Fix payment gateway bug', project: 'E-commerce Platform', overdue: true, dueDate: '2024-07-10' },
-    { id: 5, title: 'Update API documentation', project: 'Mobile App', overdue: false, dueDate: '2024-07-16' },
-    { id: 6, title: 'Performance optimization', project: 'E-commerce Platform', overdue: true, dueDate: '2024-07-12' },
-  ]);
+    loadDashboardData();
+  }, [user?.uid]);
 
-  const [projects] = useState([
-    { 
-      id: 1, 
-      name: 'E-commerce Platform', 
-      role: 'Project Manager', 
-      progress: 85, 
-      members: 5,
-      status: 'active'
-    },
-    { 
-      id: 2, 
-      name: 'Mobile App Development', 
-      role: 'Developer', 
-      progress: 62, 
-      members: 6,
-      status: 'active'
-    },
-    { 
-      id: 3, 
-      name: 'UI/UX Redesign', 
-      role: 'Lead Designer', 
-      progress: 40, 
-      members: 3,
-      status: 'planning'
-    },
-  ]);
+  // Filter tasks assigned to current user (by userId)
+  const assignedTasks = tasks.filter(task => 
+    task.assignedTo === user?.uid || task.assignedTo === user?.id || task.assignedTo === user?.email
+  );
 
-  const [notifications] = useState([
-    { id: 1, message: 'New task assigned: Implement user authentication', type: 'task', time: '2 hours ago' },
-    { id: 2, message: 'Project deadline approaching: E-commerce Platform', type: 'deadline', time: '4 hours ago' },
-    { id: 3, message: 'Team meeting scheduled for tomorrow at 10 AM', type: 'meeting', time: '1 day ago' },
-  ]);
+  // Filter incomplete tasks assigned to current user
+  const incompleteTasks = tasks.filter(task => 
+    (task.assignedTo === user?.uid || task.assignedTo === user?.id || task.assignedTo === user?.email) &&
+    task.status !== 'Done' && task.status !== 'Completed'
+  );
 
-  const [upcomingDeadlines] = useState([
-    { id: 1, title: 'User authentication module', project: 'E-commerce Platform', date: '2024-07-15', priority: 'High' },
-    { id: 2, title: 'Design system completion', project: 'UI/UX Redesign', date: '2024-07-18', priority: 'Medium' },
-    { id: 3, title: 'Mobile app beta release', project: 'Mobile App', date: '2024-07-25', priority: 'High' },
-  ]);
+  // Only show projects where the user is a team member or owner
+  const userProjects = projects.filter(project => {
+    if (!user) return false;
+    // Check if user is owner
+    if (project.ownerId === user.uid || project.ownerId === user.id || project.ownerId === user.email) return true;
+    // Check if user is in teamMembers
+    if (Array.isArray(project.teamMembers)) {
+      return project.teamMembers.some(
+        member => member.userId === user.uid || member.userId === user.id || member.userId === user.email
+      );
+    }
+    return false;
+  });
+
+  // ...existing code...
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -132,6 +172,16 @@ const Dashboard = () => {
       px={{ base: 4, md: 6 }}
       py={{ base: 4, md: 6 }}
     >
+      {/* Loading State */}
+      {(tasksLoading || projectsLoading) && (
+        <Flex justify="center" align="center" h="50vh">
+          <VStack spacing={4}>
+            <Spinner size="xl" color="blue.500" />
+            <Text color={textColor}>Loading dashboard data...</Text>
+          </VStack>
+        </Flex>
+      )}
+
       {/* Animated Background Elements */}
       <Box
         position="absolute"
@@ -205,7 +255,7 @@ const Dashboard = () => {
         </Box>
 
         {/* Stats Cards Section */}
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+  <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
           <Card 
             bg={cardBg} 
             borderColor={borderColor}
@@ -243,7 +293,7 @@ const Dashboard = () => {
                       fontWeight="bold"
                       animation="countUp 1s ease-out 0.5s both"
                     >
-                      {assignedTasks.length}
+                      {analytics.total || assignedTasks.length}
                     </StatNumber>
                   </Box>
                   <Box
@@ -301,7 +351,7 @@ const Dashboard = () => {
                       fontWeight="bold"
                       animation="countUp 1s ease-out 0.6s both"
                     >
-                      {incompleteTasks.length}
+                      {analytics.inProgress + analytics.todo || incompleteTasks.length}
                     </StatNumber>
                   </Box>
                   <Box
@@ -359,7 +409,7 @@ const Dashboard = () => {
                       fontWeight="bold"
                       animation="countUp 1s ease-out 0.7s both"
                     >
-                      {projects.filter(p => p.status === 'active').length}
+                      {userProjects.length}
                     </StatNumber>
                   </Box>
                   <Box
@@ -380,63 +430,6 @@ const Dashboard = () => {
             </CardBody>
           </Card>
 
-          <Card 
-            bg={cardBg} 
-            borderColor={borderColor}
-            shadow="xl"
-            borderRadius="2xl"
-            border="none"
-            position="relative"
-            overflow="hidden"
-            transform="translateY(0) scale(1)"
-            transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
-            _hover={{ 
-              transform: "translateY(-8px) scale(1.02)",
-              shadow: "2xl",
-              borderColor: "orange.300"
-            }}
-            _before={{
-              content: '""',
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: "4px",
-              bgGradient: "linear(90deg, orange.400, yellow.400)",
-            }}
-            animation="slideInUp 0.6s ease-out 0.3s both"
-          >
-            <CardBody>
-              <Stat>
-                <HStack justify="space-between" mb={2}>
-                  <Box>
-                    <StatLabel color="gray.600" fontWeight="semibold" fontSize="sm">Upcoming Deadlines</StatLabel>
-                    <StatNumber 
-                      color="orange.600" 
-                      fontSize="3xl" 
-                      fontWeight="bold"
-                      animation="countUp 1s ease-out 0.8s both"
-                    >
-                      {upcomingDeadlines.length}
-                    </StatNumber>
-                  </Box>
-                  <Box
-                    p={3}
-                    borderRadius="xl"
-                    bg="orange.50"
-                    color="orange.500"
-                    animation="pulse 2s ease-in-out infinite 1.5s"
-                  >
-                    <Icon as={FaCalendarAlt} boxSize={6} />
-                  </Box>
-                </HStack>
-                <StatHelpText color="gray.500" fontWeight="medium">
-                  <Icon as={FaCalendarAlt} mr={1} />
-                  Next 7 days
-                </StatHelpText>
-              </Stat>
-            </CardBody>
-          </Card>
         </SimpleGrid>
 
         {/* Task Management Section */}
@@ -503,7 +496,7 @@ const Dashboard = () => {
               <VStack align="stretch" spacing={4}>
                 {assignedTasks.map((task, index) => (
                   <Box 
-                    key={task.id} 
+                    key={task.id || task._id} 
                     p={4} 
                     border="1px" 
                     borderColor={useColorModeValue('gray.100', 'gray.600')} 
@@ -520,8 +513,8 @@ const Dashboard = () => {
                     }}
                     animation={`fadeInScale 0.6s ease-out ${0.5 + index * 0.1}s both`}
                   >
-                    <HStack justify="space-between" mb={3}>
-                      <Text fontWeight="bold" fontSize="sm" color={textColor}>{task.title}</Text>
+                    <HStack justify="space-between" mb={2}>
+                      <Text fontWeight="bold" fontSize="md" color={textColor}>{task.title}</Text>
                       <Badge 
                         colorScheme={getPriorityColor(task.priority)} 
                         size="sm"
@@ -529,16 +522,22 @@ const Dashboard = () => {
                         px={3}
                         py={1}
                         fontWeight="bold"
+                        textTransform="capitalize"
                       >
                         {task.priority}
                       </Badge>
                     </HStack>
-                    <HStack justify="space-between" fontSize="xs" color={mutedTextColor}>
-                      <Text fontWeight="semibold">{task.project}</Text>
-                      <HStack color={useColorModeValue('blue.500', 'blue.300')}>
-                        <Icon as={FaClock} />
-                        <Text fontWeight="medium">{task.dueDate}</Text>
-                      </HStack>
+                    <Text fontSize="sm" color={mutedTextColor} mb={2} noOfLines={2}>{task.description}</Text>
+                    <HStack spacing={3} mb={1}>
+                      <Badge colorScheme={task.status === 'COMPLETED' ? 'green' : task.status === 'IN_PROGRESS' ? 'blue' : 'gray'} fontSize="0.85em" px={3} py={1} borderRadius="full" textTransform="capitalize">
+                        {task.status?.replace('_', ' ')}
+                      </Badge>
+                      {task.dueDate && (
+                        <HStack color={useColorModeValue('blue.500', 'blue.300')} spacing={1}>
+                          <Icon as={FaClock} />
+                          <Text fontWeight="medium">{new Date(task.dueDate).toLocaleDateString()}</Text>
+                        </HStack>
+                      )}
                     </HStack>
                   </Box>
                 ))}
@@ -608,7 +607,7 @@ const Dashboard = () => {
               <VStack align="stretch" spacing={4}>
                 {incompleteTasks.map((task, index) => (
                   <Box 
-                    key={task.id} 
+                    key={task.id || task._id} 
                     p={4} 
                     border="1px" 
                     borderColor={task.overdue ? useColorModeValue("red.200", "red.600") : useColorModeValue("gray.100", "gray.600")} 
@@ -635,8 +634,8 @@ const Dashboard = () => {
                       borderLeftRadius: "xl"
                     } : {}}
                   >
-                    <HStack justify="space-between" mb={3}>
-                      <Text fontWeight="bold" fontSize="sm" color={textColor}>{task.title}</Text>
+                    <HStack justify="space-between" mb={2}>
+                      <Text fontWeight="bold" fontSize="md" color={textColor}>{task.title}</Text>
                       {task.overdue && (
                         <Badge 
                           colorScheme="red" 
@@ -650,13 +649,29 @@ const Dashboard = () => {
                           Overdue
                         </Badge>
                       )}
+                      <Badge 
+                        colorScheme={getPriorityColor(task.priority)} 
+                        size="sm"
+                        borderRadius="full"
+                        px={3}
+                        py={1}
+                        fontWeight="bold"
+                        textTransform="capitalize"
+                      >
+                        {task.priority}
+                      </Badge>
                     </HStack>
-                    <HStack justify="space-between" fontSize="xs" color={mutedTextColor}>
-                      <Text fontWeight="semibold">{task.project}</Text>
-                      <HStack color={task.overdue ? useColorModeValue('red.600', 'red.300') : useColorModeValue('orange.500', 'orange.300')}>
-                        <Icon as={FaClock} />
-                        <Text fontWeight="medium">{task.dueDate}</Text>
-                      </HStack>
+                    <Text fontSize="sm" color={mutedTextColor} mb={2} noOfLines={2}>{task.description}</Text>
+                    <HStack spacing={3} mb={1}>
+                      <Badge colorScheme={task.status === 'COMPLETED' ? 'green' : task.status === 'IN_PROGRESS' ? 'blue' : 'gray'} fontSize="0.85em" px={3} py={1} borderRadius="full" textTransform="capitalize">
+                        {task.status?.replace('_', ' ')}
+                      </Badge>
+                      {task.dueDate && (
+                        <HStack color={task.overdue ? useColorModeValue('red.600', 'red.300') : useColorModeValue('orange.500', 'orange.300')} spacing={1}>
+                          <Icon as={FaClock} />
+                          <Text fontWeight="medium">{new Date(task.dueDate).toLocaleDateString()}</Text>
+                        </HStack>
+                      )}
                     </HStack>
                   </Box>
                 ))}
@@ -665,9 +680,8 @@ const Dashboard = () => {
           </Card>
         </SimpleGrid>
 
-        {/* Projects & Activities Section */}
-        <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
-          {/* Projects */}
+        {/* Projects Section - now full width */}
+        <Box mt={8}>
           <Card 
             bg={cardBg} 
             borderColor={borderColor}
@@ -727,9 +741,9 @@ const Dashboard = () => {
             </CardHeader>
             <CardBody>
               <VStack align="stretch" spacing={5}>
-                {projects.map((project, index) => (
+                {userProjects.map((project, index) => (
                   <Box 
-                    key={project.id} 
+                    key={project.id || project._id} 
                     p={5} 
                     border="1px" 
                     borderColor={useColorModeValue('gray.100', 'gray.600')} 
@@ -746,26 +760,34 @@ const Dashboard = () => {
                     }}
                     animation={`fadeInScale 0.6s ease-out ${0.7 + index * 0.1}s both`}
                   >
-                    <HStack justify="space-between" mb={4}>
+                    <HStack justify="space-between" mb={2}>
                       <VStack align="start" spacing={1}>
-                        <Text fontWeight="bold" color={textColor} fontSize="md">{project.name}</Text>
+                        <Text fontWeight="bold" color={textColor} fontSize="lg">{project.name}</Text>
                         <Text fontSize="sm" color={mutedTextColor} fontWeight="semibold">{project.role}</Text>
+                        <Text fontSize="sm" color={mutedTextColor} noOfLines={2}>{project.description}</Text>
+                        <HStack spacing={2} mt={1}>
+                          <Badge colorScheme={getPriorityColor(project.priority)} fontSize="0.8em" borderRadius="full" px={2} py={1}>{project.priority}</Badge>
+                          <Badge colorScheme={getStatusColor(project.status)} fontSize="0.8em" borderRadius="full" px={2} py={1} textTransform="capitalize">{project.status}</Badge>
+                        </HStack>
                       </VStack>
-                      <Badge 
-                        colorScheme={getStatusColor(project.status)}
-                        borderRadius="full"
-                        px={3}
-                        py={1}
-                        fontWeight="bold"
-                        textTransform="capitalize"
-                      >
-                        {project.status}
-                      </Badge>
+                      <VStack align="end" spacing={1}>
+                        <Text fontSize="xs" color={mutedTextColor}>Start: {project.startDate ? new Date(project.startDate).toLocaleDateString() : '-'}</Text>
+                        <Text fontSize="xs" color={mutedTextColor}>Deadline: {project.deadline ? new Date(project.deadline).toLocaleDateString() : '-'}</Text>
+                        <Text fontSize="xs" color={mutedTextColor}>Owner: {project.ownerId}</Text>
+                        {Array.isArray(project.tags) && project.tags.length > 0 && (
+                          <HStack spacing={1} flexWrap="wrap">
+                            {project.tags.map(tag => (
+                              <Badge key={tag} colorScheme="teal" fontSize="0.7em" borderRadius="full" px={2}>{tag}</Badge>
+                            ))}
+                          </HStack>
+                        )}
+                      </VStack>
                     </HStack>
                     <VStack align="stretch" spacing={3}>
                       <HStack justify="space-between">
                         <Text fontSize="sm" color={useColorModeValue('gray.700', 'gray.200')} fontWeight="bold">Progress</Text>
-                        <Text fontSize="sm" fontWeight="bold" color={useColorModeValue('green.600', 'green.300')}>{project.progress}%</Text>
+                        <Text fontSize="sm" fontWeight="bold" color={useColorModeValue('green.600', 'green.300')}
+                        >{project.progress}%</Text>
                       </HStack>
                       <Progress 
                         value={project.progress} 
@@ -782,11 +804,11 @@ const Dashboard = () => {
                       <HStack justify="space-between" fontSize="sm" color={mutedTextColor}>
                         <HStack>
                           <Icon as={FaUsers} color={useColorModeValue('green.500', 'green.300')} />
-                          <Text fontWeight="semibold">{project.members} members</Text>
+                          <Text fontWeight="semibold">{Array.isArray(project.teamMembers) ? project.teamMembers.length : 0} members</Text>
                         </HStack>
                         <Button 
                           as={RouterLink} 
-                          to={`/projects/${project.id}`} 
+                          to={`/project/${project.id || project._id}`} 
                           size="xs" 
                           variant="solid"
                           colorScheme="green"
@@ -807,189 +829,7 @@ const Dashboard = () => {
               </VStack>
             </CardBody>
           </Card>
-
-          {/* Notifications & Upcoming Deadlines */}
-          <VStack align="stretch" spacing={6}>
-            {/* Notifications */}
-            <Card 
-              bg={cardBg} 
-              borderColor={borderColor}
-              shadow="xl"
-              borderRadius="2xl"
-              border="none"
-              position="relative"
-              overflow="hidden"
-              transform="translateY(0)"
-              transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
-              _hover={{ 
-                transform: "translateY(-5px)",
-                shadow: "2xl"
-              }}
-              _before={{
-                content: '""',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: "3px",
-                bgGradient: "linear(90deg, purple.400, pink.400)",
-              }}
-              animation="fadeInScale 0.8s ease-out 0.7s both"
-            >
-              <CardHeader bg={useColorModeValue('purple.50', 'gray.700')} borderTopRadius="2xl">
-                <HStack>
-                  <Box
-                    p={2}
-                    borderRadius="lg"
-                    bg={useColorModeValue('purple.100', 'purple.800')}
-                    color={useColorModeValue('purple.600', 'purple.200')}
-                  >
-                    <Icon as={FaBell} boxSize={5} />
-                  </Box>
-                  <Heading size="md" color={textColor} fontWeight="bold">Notifications</Heading>
-                </HStack>
-              </CardHeader>
-              <CardBody>
-                <VStack align="stretch" spacing={4}>
-                  {notifications.map((notification, index) => (
-                    <Alert 
-                      key={notification.id} 
-                      status="info" 
-                      variant="left-accent" 
-                      borderRadius="xl"
-                      bg={useColorModeValue('blue.50', 'gray.700')}
-                      borderColor={useColorModeValue('blue.200', 'blue.600')}
-                      border="1px"
-                      transform="translateX(0)"
-                      transition="all 0.3s ease"
-                      _hover={{
-                        bg: useColorModeValue('blue.100', 'gray.600'),
-                        transform: "translateX(5px)",
-                        shadow: "md"
-                      }}
-                      animation={`fadeInScale 0.6s ease-out ${0.8 + index * 0.1}s both`}
-                    >
-                      <AlertIcon color={useColorModeValue('blue.500', 'blue.300')} />
-                      <Box flex="1">
-                        <Text fontSize="sm" color={textColor} fontWeight="bold" mb={1}>
-                          {notification.message}
-                        </Text>
-                        <Text fontSize="xs" color={mutedTextColor} fontWeight="medium">
-                          {notification.time}
-                        </Text>
-                      </Box>
-                    </Alert>
-                  ))}
-                </VStack>
-              </CardBody>
-            </Card>
-
-            {/* Upcoming Deadlines */}
-            <Card 
-              bg={cardBg} 
-              borderColor={borderColor}
-              shadow="xl"
-              borderRadius="2xl"
-              border="none"
-              position="relative"
-              overflow="hidden"
-              transform="translateY(0)"
-              transition="all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
-              _hover={{ 
-                transform: "translateY(-5px)",
-                shadow: "2xl"
-              }}
-              _before={{
-                content: '""',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                height: "3px",
-                bgGradient: "linear(90deg, orange.400, yellow.400)",
-              }}
-              animation="fadeInScale 0.8s ease-out 0.8s both"
-            >
-              <CardHeader bg={useColorModeValue('orange.50', 'gray.700')} borderTopRadius="2xl">
-                <HStack justify="space-between">
-                  <HStack>
-                    <Box
-                      p={2}
-                      borderRadius="lg"
-                      bg={useColorModeValue('orange.100', 'orange.800')}
-                      color={useColorModeValue('orange.600', 'orange.200')}
-                    >
-                      <Icon as={FaCalendarAlt} boxSize={5} />
-                    </Box>
-                    <Heading size="md" color={textColor} fontWeight="bold">Upcoming Deadlines</Heading>
-                  </HStack>
-                  <Button 
-                    as={RouterLink} 
-                    to="/calendar" 
-                    size="sm" 
-                    variant="ghost" 
-                    rightIcon={<FaArrowRight />}
-                    color={useColorModeValue('orange.600', 'orange.300')}
-                    fontWeight="semibold"
-                    _hover={{ 
-                      color: useColorModeValue('orange.700', 'orange.200'),
-                      bg: useColorModeValue('orange.100', 'orange.800'),
-                      transform: "translateX(3px)"
-                    }}
-                    transition="all 0.3s ease"
-                  >
-                    View Calendar
-                  </Button>
-                </HStack>
-              </CardHeader>
-              <CardBody>
-                <VStack align="stretch" spacing={4}>
-                  {upcomingDeadlines.map((deadline, index) => (
-                    <Box 
-                      key={deadline.id} 
-                      p={4} 
-                      border="1px" 
-                      borderColor={useColorModeValue('gray.100', 'gray.600')} 
-                      borderRadius="xl"
-                      bg={cardContentBg}
-                      position="relative"
-                      transform="translateX(0)"
-                      transition="all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
-                      _hover={{ 
-                        bg: useColorModeValue('orange.50', 'gray.600'),
-                        borderColor: useColorModeValue('orange.200', 'orange.500'),
-                        transform: "translateX(5px)",
-                        shadow: "md"
-                      }}
-                      animation={`fadeInScale 0.6s ease-out ${0.9 + index * 0.1}s both`}
-                    >
-                      <HStack justify="space-between" mb={3}>
-                        <Text fontWeight="bold" fontSize="sm" color={textColor}>{deadline.title}</Text>
-                        <Badge 
-                          colorScheme={getPriorityColor(deadline.priority)} 
-                          size="sm"
-                          borderRadius="full"
-                          px={3}
-                          py={1}
-                          fontWeight="bold"
-                        >
-                          {deadline.priority}
-                        </Badge>
-                      </HStack>
-                      <HStack justify="space-between" fontSize="xs" color={mutedTextColor}>
-                        <Text fontWeight="semibold">{deadline.project}</Text>
-                        <HStack color={useColorModeValue('orange.500', 'orange.300')}>
-                          <Icon as={FaCalendarAlt} />
-                          <Text fontWeight="medium">{deadline.date}</Text>
-                        </HStack>
-                      </HStack>
-                    </Box>
-                  ))}
-                </VStack>
-              </CardBody>
-            </Card>
-          </VStack>
-        </SimpleGrid>
+        </Box>
       </VStack>
     
     {/* CSS Keyframes for animations */}
